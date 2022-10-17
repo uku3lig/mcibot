@@ -1,23 +1,20 @@
 package net.uku3lig.mcibot.model;
 
-import lombok.AllArgsConstructor;
-import lombok.Getter;
-import lombok.Setter;
-import lombok.ToString;
+import jakarta.persistence.Entity;
+import jakarta.persistence.Id;
+import lombok.*;
 
 import java.util.Objects;
-import java.util.UUID;
 
 @Getter
 @Setter
 @ToString
-@AllArgsConstructor
+@NoArgsConstructor
+@Entity
 public class Server {
-    /**
-     * Primary key.
-     */
+    @Id
     private long discordId;
-    private UUID minecraftId;
+    private long minecraftId;
 
     @Override
     public boolean equals(Object o) {
