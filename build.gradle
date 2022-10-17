@@ -5,8 +5,8 @@ plugins {
     id 'java'
 }
 
-group = project.maven_group
-version = project.project_version
+group = "net.uku3lig"
+version = "0.0.1"
 sourceCompatibility = '17'
 
 configurations {
@@ -22,8 +22,8 @@ repositories {
 }
 
 dependencies {
-    implementation "org.springframework.boot:spring-boot-starter-web:${project.spring_version}"
-    developmentOnly "org.springframework.boot:spring-boot-devtools:${project.spring_version}"
+    implementation "org.springframework.boot:spring-boot-starter-web"
+    developmentOnly "org.springframework.boot:spring-boot-devtools"
 }
 
 tasks.withType(JavaCompile).configureEach {
