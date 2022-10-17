@@ -2,7 +2,11 @@ package net.uku3lig.mcibot.model;
 
 import jakarta.persistence.Entity;
 import jakarta.persistence.Id;
-import lombok.*;
+import jakarta.validation.constraints.NotNull;
+import lombok.Getter;
+import lombok.NoArgsConstructor;
+import lombok.Setter;
+import lombok.ToString;
 
 import java.util.Objects;
 
@@ -13,14 +17,17 @@ import java.util.Objects;
 @Entity
 public class Server {
     @Id
-    private long discordId;
-    private long minecraftId;
+    @NotNull
+    private Long discordId;
+
+    @NotNull
+    private Long minecraftId;
 
     @Override
     public boolean equals(Object o) {
         if (this == o) return true;
         if (!(o instanceof Server server)) return false;
-        return discordId == server.discordId;
+        return Objects.equals(discordId, server.discordId);
     }
 
     @Override

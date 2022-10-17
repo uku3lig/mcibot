@@ -1,5 +1,6 @@
 package net.uku3lig.mcibot;
 
+import jakarta.validation.Valid;
 import lombok.AllArgsConstructor;
 import net.uku3lig.mcibot.model.Server;
 import org.springframework.http.HttpStatus;
@@ -17,7 +18,7 @@ public class ServerRestController {
     }
 
     @PostMapping({"/server", "/server/"})
-    public Server createServer(@RequestBody Server server) {
+    public Server createServer(@RequestBody @Valid Server server) {
         if (repository.existsById(server.getDiscordId())) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "A server with this id already exists.");
         }
