@@ -18,7 +18,7 @@ public class DiscordUtil {
             .defaultStatusHandler(HttpStatusCode::isError, response -> response.bodyToMono(String.class).map(RuntimeException::new).flatMap(Mono::error))
             .build();
 
-    private final String clientId;
+    private final long clientId;
     private final String clientSecret;
 
     public String getOAuthUrl(String redirectUri, String state) {
@@ -28,7 +28,7 @@ public class DiscordUtil {
 
     public Mono<TokenResponse> getAccessToken(String code, String redirectUri) {
         LinkedMultiValueMap<String, String> body = new LinkedMultiValueMap<>();
-        body.add("client_id", clientId);
+        body.add("client_id", String.valueOf(clientId));
         body.add("client_secret", clientSecret);
         body.add("grant_type", "authorization_code");
         body.add("code", code);

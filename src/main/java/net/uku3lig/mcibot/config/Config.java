@@ -12,8 +12,11 @@ public class Config implements IConfig<Config> {
     private String databaseUsername;
     private String databasePassword;
 
+    private long clientId;
+    private String clientSecret;
+
     @Override
     public Config defaultConfig() {
-        return new Config("jdbc:mariadb://localhost:3306/mci_db", "mci", "");
+        return new Config("jdbc:mariadb://localhost:3306/mci_db", "mci", "", -1, "");
     }
 }
