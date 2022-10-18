@@ -4,6 +4,7 @@ import lombok.AllArgsConstructor;
 import net.uku3lig.mcibot.model.DiscordUser;
 import net.uku3lig.mcibot.model.TokenResponse;
 import org.springframework.http.HttpHeaders;
+import org.springframework.http.HttpStatusCode;
 import org.springframework.http.MediaType;
 import org.springframework.util.LinkedMultiValueMap;
 import org.springframework.web.reactive.function.client.WebClient;
@@ -14,6 +15,7 @@ public class DiscordUtil {
     private final WebClient client = WebClient.builder()
             .baseUrl("https://discord.com/api")
             .defaultHeader(HttpHeaders.CONTENT_TYPE, MediaType.APPLICATION_FORM_URLENCODED_VALUE)
+            .defaultStatusHandler(HttpStatusCode::isError, response -> response.bodyToMono(String.class).map(RuntimeException::new).flatMap(Mono::error))
             .build();
 
     private final String clientId;
