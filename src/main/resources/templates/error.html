@@ -2,9 +2,10 @@
 <html lang="en">
 <body>
 <h1>Something went wrong! </h1>
-<h2>Click <a href="https://google.com">here</a> to go back to a more relevant website</h2>
+<h2>Click <a href="https://google.com">here</a> to go back to a more relevant website.</h2>
 <div th:if="${(param.err_msg != null)}">
-    Error message: <code th:text="${param.err_msg}">hi</code>
+    Error message: <code th:text="${param.err_msg}">hi</code> <br>
+    Please report the error to the developer.
 </div>
 </body>
 </html>
