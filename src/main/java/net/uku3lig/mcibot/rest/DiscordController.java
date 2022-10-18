@@ -9,6 +9,8 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.servlet.ModelAndView;
 
+import java.util.Map;
+
 @RestController
 @Slf4j
 public class DiscordController {
@@ -24,7 +26,7 @@ public class DiscordController {
     public ModelAndView discord(@RequestParam("guild_id") long guildId, @RequestParam String code, @RequestParam(required = false) String state) {
         if (System.getenv("MCI_CLIENT_SECRET") == null) {
             log.error("MCI_CLIENT_SECRET is not set");
-            return new ModelAndView("redirect:/error?err_msg=MCI_CLIENT_SECRET+is+not+set");
+            return new ModelAndView("redirect:/error", Map.of("err_msg", "MCI_CLIENT_SECRET is not set"));
         }
 
         discord.getAccessToken(code, "http://localhost:8080/discord")
