@@ -19,6 +19,11 @@ public class DiscordOAuth2 {
     private final String clientId;
     private final String clientSecret;
 
+    public String getOAuthUrl(String redirectUri, String state) {
+        return String.format("https://discord.com/oauth2/authorize?client_id=%s&permissions=8&redirect_uri=%s&response_type=code&scope=identify%%20bot&state=%s",
+                clientId, redirectUri, state);
+    }
+
     public Mono<TokenResponse> getAccessToken(String code, String redirectUri) {
         LinkedMultiValueMap<String, String> body = new LinkedMultiValueMap<>();
         body.add("client_id", clientId);
@@ -34,12 +39,15 @@ public class DiscordOAuth2 {
                 .bodyToMono(TokenResponse.class);
     }
 
-    public Mono<String> getUserAvatar(String accessToken) {
+    public Mono<DiscordUser> getUser(String accessToken) {
         return client.get()
                 .uri("/users/@me")
                 .header(HttpHeaders.AUTHORIZATION, "Bearer " + accessToken)
                 .retrieve()
-                .bodyToMono(DiscordUser.class)
-                .map(u -> "https://cdn.discordapp.com/avatars/" + u.getId() + "/" + u.getAvatar() + ".png?size=4096");
+                .bodyToMono(DiscordUser.class);
+    }
+
+    public String getAvatarUrl(DiscordUser user) {
+        return "https://cdn.discordapp.com/avatars/" + user.getId() + "/" + user.getAvatar() + ".png?size=4096";
     }
 }
