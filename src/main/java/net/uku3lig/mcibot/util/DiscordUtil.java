@@ -6,6 +6,7 @@ import net.uku3lig.mcibot.model.TokenResponse;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatusCode;
 import org.springframework.http.MediaType;
+import org.springframework.lang.Nullable;
 import org.springframework.util.LinkedMultiValueMap;
 import org.springframework.web.reactive.function.client.WebClient;
 import reactor.core.publisher.Mono;
@@ -21,9 +22,9 @@ public class DiscordUtil {
     private final long clientId;
     private final String clientSecret;
 
-    public String getOAuthUrl(String redirectUri, String state) {
-        return String.format("https://discord.com/oauth2/authorize?client_id=%s&permissions=8&redirect_uri=%s&response_type=code&scope=identify%%20bot&state=%s",
-                clientId, redirectUri, state);
+    public String getOAuthUrl(String redirectUri, @Nullable String state) {
+        return String.format("https://discord.com/oauth2/authorize?client_id=%d&permissions=8&redirect_uri=%s&response_type=code&scope=identify%%20bot%s",
+                clientId, redirectUri, (state == null ? "" : "&state=" + state));
     }
 
     public Mono<TokenResponse> getAccessToken(String code, String redirectUri) {
