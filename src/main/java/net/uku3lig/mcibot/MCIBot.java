@@ -4,8 +4,8 @@ import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
 
 @SpringBootApplication
-public class MciBotApplication {
+public class MCIBot {
     public static void main(String[] args) {
-        SpringApplication.run(MciBotApplication.class, args);
+        SpringApplication.run(MCIBot.class, args);
     }
 }

@@ -10,7 +10,7 @@ import org.springframework.web.reactive.function.client.WebClient;
 import reactor.core.publisher.Mono;
 
 @AllArgsConstructor
-public class DiscordOAuth2 {
+public class DiscordUtil {
     private final WebClient client = WebClient.builder()
             .baseUrl("https://discord.com/api")
             .defaultHeader(HttpHeaders.CONTENT_TYPE, MediaType.APPLICATION_FORM_URLENCODED_VALUE)
