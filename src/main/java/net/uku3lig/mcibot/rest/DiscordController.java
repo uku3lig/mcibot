@@ -19,26 +19,22 @@ import org.springframework.web.servlet.ModelAndView;
 @RequiredArgsConstructor
 @Slf4j
 public class DiscordController {
-    // url: https://discord.com/oauth2/authorize?client_id=1004131023338086451&permissions=8&redirect_uri=http%3A%2F%2Flocalhost%3A8080%2Fdiscord&response_type=code&scope=identify%20bot
+    // url: http://localhost:8080/discord/oauth?redirectUri=http://localhost:8080/discord
     private DiscordUtil discord;
     private final ServerRepository repository;
 
 
-    @GetMapping("/discord/url")
-    public String getUrl(@RequestParam String redirectUri, @RequestParam(required = false) String state) {
-        return discord.getOAuthUrl(redirectUri, state);
+    @GetMapping("/discord/oauth")
+    public ModelAndView getUrl(@RequestParam String redirectUri, @RequestParam(required = false) String state) {
+        if (isDiscordBroken()) return Util.error("Client ID or secret not set");
+
+        return new ModelAndView("redirect:" + discord.getOAuthUrl(redirectUri, state));
     }
 
     @GetMapping("/discord")
+    // TODO make state required
     public ModelAndView discord(@RequestParam("guild_id") long guildId, @RequestParam String code, @RequestParam(required = false) String state) {
-        if (discord == null) {
-            Config config = MCIBot.getManager().getConfig();
-            if (config.getClientId() == -1 || config.getClientSecret() == null || config.getClientSecret().isEmpty()) {
-                return Util.error("Client ID or secret not set");
-            }
-
-            discord = new DiscordUtil(config.getClientId(), config.getClientSecret());
-        }
+        if (isDiscordBroken()) return Util.error("Client ID or secret not set");
 
         discord.getAccessToken(code, "http://localhost:8080/discord")
                 .map(TokenResponse::getAccessToken)
@@ -50,5 +46,17 @@ public class DiscordController {
         repository.save(server);
 
         return new ModelAndView("redirect:https://discord.com/oauth2/authorized");
+    }
+
+    private boolean isDiscordBroken() {
+        if (discord == null) {
+            Config config = MCIBot.getManager().getConfig();
+            if (config.getClientId() == -1 || config.getClientSecret() == null || config.getClientSecret().isEmpty()) {
+                return true;
+            }
+
+            discord = new DiscordUtil(config.getClientId(), config.getClientSecret());
+        }
+        return false;
     }
 }
