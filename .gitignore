@@ -35,3 +35,6 @@ out/
 
 ### VS Code ###
 .vscode/
+
+### USER-DEFINED ###
+mcibot_config.toml

@@ -39,6 +39,7 @@ public class ConfigSerializer<T extends IConfig<T>> {
      */
     public T deserialize() {
         if (!Files.exists(file.toPath())) {
+            serialize(defaultConfig.get());
             return defaultConfig.get();
         }
 

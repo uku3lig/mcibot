@@ -5,6 +5,10 @@ import net.uku3lig.mcibot.config.Config;
 import net.uku3lig.mcibot.config.ConfigManager;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
+import org.springframework.context.annotation.Bean;
+import org.springframework.jdbc.datasource.DriverManagerDataSource;
+
+import javax.sql.DataSource;
 
 @SpringBootApplication
 public class MCIBot {
@@ -13,5 +17,15 @@ public class MCIBot {
 
     public static void main(String[] args) {
         SpringApplication.run(MCIBot.class, args);
+    }
+
+    @Bean
+    public DataSource dataSource() {
+        DriverManagerDataSource dataSource = new DriverManagerDataSource();
+        dataSource.setUrl(manager.getConfig().getConnectionUrl());
+        dataSource.setUsername(manager.getConfig().getDatabaseUsername());
+        dataSource.setPassword(manager.getConfig().getDatabasePassword());
+
+        return dataSource;
     }
 }

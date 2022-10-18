@@ -50,7 +50,7 @@ public class ConfigManager<T extends IConfig<T>> {
      * @param <T> The type of the config
      */
     public static <T extends IConfig<T>> ConfigManager<T> create(Class<T> configClass, String name) {
-        String filename = "./config/" + name + ".toml";
+        String filename = "./" + name + ".toml";
         Supplier<T> defaultConfig = () -> newInstance(configClass).defaultConfig();
         return new ConfigManager<>(new ConfigSerializer<>(configClass, new File(filename), defaultConfig));
     }
