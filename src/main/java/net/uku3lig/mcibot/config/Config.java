@@ -14,9 +14,10 @@ public class Config implements IConfig<Config> {
 
     private long clientId;
     private String clientSecret;
+    private String discordToken;
 
     @Override
     public Config defaultConfig() {
-        return new Config("jdbc:mariadb://localhost:3306/mci_db", "mci", "", -1, "");
+        return new Config("jdbc:mariadb://localhost:3306/mci_db", "mci", "", -1, "", "");
     }
 }
