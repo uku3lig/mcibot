@@ -25,15 +25,14 @@ public class DiscordController {
 
 
     @GetMapping("/discord/oauth")
-    public ModelAndView getUrl(@RequestParam String redirectUri, @RequestParam(required = false) String state) {
+    public ModelAndView getUrl(@RequestParam String redirectUri, @RequestParam String state) {
         if (isDiscordBroken()) return Util.error("Client ID or secret not set");
 
         return new ModelAndView("redirect:" + discord.getOAuthUrl(redirectUri, state));
     }
 
     @GetMapping("/discord")
-    // TODO make state required
-    public ModelAndView discord(@RequestParam("guild_id") long guildId, @RequestParam String code, @RequestParam(required = false) String state) {
+    public ModelAndView discord(@RequestParam("guild_id") long guildId, @RequestParam String code, @RequestParam String state) {
         if (isDiscordBroken()) return Util.error("Client ID or secret not set");
 
         discord.getAccessToken(code, "http://localhost:8080/discord")
