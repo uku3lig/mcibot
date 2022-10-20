@@ -16,14 +16,14 @@ import java.util.UUID;
 public class BlacklistedUser {
     @Id
     private UUID minecraftUuid;
-    private long discordId;
+    private String discordId;
     private String reason;
 
     @Override
     public boolean equals(Object o) {
         if (this == o) return true;
         if (!(o instanceof BlacklistedUser that)) return false;
-        return discordId == that.discordId && Objects.equals(minecraftUuid, that.minecraftUuid);
+        return Objects.equals(discordId, that.discordId) && Objects.equals(minecraftUuid, that.minecraftUuid);
     }
 
     @Override

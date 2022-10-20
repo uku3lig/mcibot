@@ -5,13 +5,12 @@ import net.dv8tion.jda.api.events.interaction.command.GenericCommandInteractionE
 import net.dv8tion.jda.api.events.interaction.component.ButtonInteractionEvent;
 import net.dv8tion.jda.api.hooks.ListenerAdapter;
 import net.dv8tion.jda.api.interactions.commands.build.CommandData;
+import net.dv8tion.jda.api.interactions.components.buttons.Button;
 import net.uku3lig.mcibot.MCIBot;
 import net.uku3lig.mcibot.util.ClassScanner;
 import org.jetbrains.annotations.NotNull;
 
-import java.util.Collection;
-import java.util.Objects;
-import java.util.Set;
+import java.util.*;
 
 public class CommandListener extends ListenerAdapter {
     private final Set<ICommand> commands;
@@ -45,8 +44,21 @@ public class CommandListener extends ListenerAdapter {
     @Override
     public void onButtonInteraction(@NotNull ButtonInteractionEvent event) {
         buttons.stream()
-                .filter(b -> Objects.equals(b.getButton().getId(), event.getButton().getId()))
-                .forEach(b -> b.onButtonClick(event));
+                .filter(b -> buttonEquals(b, event.getButton()))
+                .forEach(b -> b.onButtonClick(event, getArgs(event.getButton())));
     }
 
+    private boolean buttonEquals(@NotNull IButton iButton, @NotNull Button button) {
+        if (Objects.equals(iButton.getButton(), button)) return true;
+        if (iButton.getButton().getId() == null || button.getId() == null) return false;
+        if (iButton.getButton().getId().equalsIgnoreCase(button.getId())) return true;
+        String iButtonSplit = iButton.getButton().getId().split(",")[0];
+        String buttonSplit = button.getId().split(",")[0];
+        return iButtonSplit.equalsIgnoreCase(buttonSplit);
+    }
+
+    private List<String> getArgs(Button button) {
+        if (button.getId() == null) return Collections.emptyList();
+        return Arrays.stream(button.getId().split(",")).skip(1).toList();
+    }
 }
