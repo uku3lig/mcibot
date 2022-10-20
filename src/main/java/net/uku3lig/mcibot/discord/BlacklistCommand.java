@@ -1,25 +1,23 @@
 package net.uku3lig.mcibot.discord;
 
 import lombok.Data;
-import lombok.NoArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import net.dv8tion.jda.api.entities.User;
 import net.dv8tion.jda.api.events.interaction.command.GenericCommandInteractionEvent;
-import net.dv8tion.jda.api.events.interaction.component.ButtonInteractionEvent;
-import net.dv8tion.jda.api.exceptions.ErrorHandler;
 import net.dv8tion.jda.api.interactions.callbacks.IReplyCallback;
 import net.dv8tion.jda.api.interactions.commands.OptionMapping;
 import net.dv8tion.jda.api.interactions.commands.OptionType;
 import net.dv8tion.jda.api.interactions.commands.build.CommandData;
 import net.dv8tion.jda.api.interactions.commands.build.Commands;
-import net.dv8tion.jda.api.interactions.components.buttons.Button;
-import net.dv8tion.jda.api.requests.ErrorResponse;
 import net.uku3lig.mcibot.MCIBot;
 import net.uku3lig.mcibot.model.BlacklistedUser;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.reactive.function.client.WebClient;
 import reactor.core.publisher.Mono;
 
-import java.util.*;
+import java.util.Objects;
+import java.util.Optional;
+import java.util.UUID;
 
 @Slf4j
 public class BlacklistCommand implements ICommand {
@@ -29,20 +27,19 @@ public class BlacklistCommand implements ICommand {
     public CommandData getCommandData() {
         return Commands.slash("blacklist", "Blacklist an user.")
                 .addOption(OptionType.STRING, "uuid", "The user's UUID.", true)
-                .addOption(OptionType.STRING, "userid", "The user to blacklist.", true)
+                .addOption(OptionType.USER, "user", "The user to blacklist.", true)
                 .addOption(OptionType.STRING, "reason", "The reason for the blacklist.");
     }
 
     @Override
     public void onCommand(GenericCommandInteractionEvent event) {
         UUID uuid = UUID.fromString(Objects.requireNonNull(event.getOption("uuid")).getAsString());
-        String userId = Objects.requireNonNull(event.getOption("userid")).getAsString();
+        User user = Objects.requireNonNull(event.getOption("user")).getAsUser();
         String reason = Optional.ofNullable(event.getOption("reason")).map(OptionMapping::getAsString).orElse(null);
-        BlacklistedUser user = new BlacklistedUser(uuid, userId, reason);
 
-        MCIBot.getJda().retrieveUserById(userId).queue(u -> checkMcAccount(uuid, event, user),
-                new ErrorHandler().handle(ErrorResponse.UNKNOWN_USER, e -> event.reply("User `" + userId + "` was not found. Are you sure the ID is correct?")
-                        .addActionRow(new AreYouSureButton(Arrays.asList(uuid.toString(), userId, reason)).getButton()).queue()));
+        BlacklistedUser blacklistedUser = new BlacklistedUser(uuid, user.getId(), reason);
+
+        checkMcAccount(uuid, event, blacklistedUser);
     }
 
     private static void checkMcAccount(UUID uuid, IReplyCallback event, BlacklistedUser user) {
@@ -57,29 +54,15 @@ public class BlacklistCommand implements ICommand {
                         return res.bodyToMono(Profile.class);
                     }
                 })
-                .subscribe(p -> event.reply("Not implemented yet. User: `" + user + "`\nMinecraft username: `" + p.getName() + "`").queue());
+                // todo check if user is already blacklisted
+                // todo add button to say hi :3 aer you sure you want to blacklist the user :3
+                .subscribe(p -> MCIBot.getJda().retrieveUserById(user.getDiscordId())
+                        .flatMap(u -> event.reply("Not implemented yet. User: `%s`%nMinecraft username: `%s`%nDiscord tag: `%s`"
+                                .formatted(user, p.getName(), u.getAsTag()))).queue());
     }
 
     @Data
     private static class Profile {
         private String name;
-    }
-
-    @NoArgsConstructor
-    public static class AreYouSureButton extends IButton {
-        public AreYouSureButton(List<String> args) {
-            super(args);
-        }
-
-        @Override
-        public Button getButtonBase() {
-            return Button.primary("are_you_sure", "Click to confirm");
-        }
-
-        @Override
-        public void onButtonClick(ButtonInteractionEvent event, List<String> args) {
-            String reason = args.get(2).equals("null") ? null : args.get(2);
-            checkMcAccount(UUID.fromString(args.get(0)), event, new BlacklistedUser(UUID.fromString(args.get(0)), args.get(1), reason));
-        }
     }
 }
