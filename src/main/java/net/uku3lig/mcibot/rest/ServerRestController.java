@@ -18,6 +18,6 @@ public class ServerRestController {
 
     @GetMapping("/server/{id}")
     public Server getServer(@PathVariable long id) {
-        return repository.findById(id).orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND));
+        return repository.findByDiscordId(id).orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND));
     }
 }

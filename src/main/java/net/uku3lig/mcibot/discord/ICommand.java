@@ -1,10 +1,8 @@
 package net.uku3lig.mcibot.discord;
 
-import net.dv8tion.jda.api.events.interaction.command.GenericCommandInteractionEvent;
-import net.dv8tion.jda.api.interactions.commands.build.CommandData;
+import discord4j.core.event.domain.interaction.ChatInputInteractionEvent;
+import discord4j.discordjson.json.ApplicationCommandRequest;
 
-public interface ICommand {
-    CommandData getCommandData();
-
-    void onCommand(GenericCommandInteractionEvent event);
+public interface ICommand extends InteractionHandler<ChatInputInteractionEvent> {
+    ApplicationCommandRequest getCommandData();
 }

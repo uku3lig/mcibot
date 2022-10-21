@@ -1,10 +1,8 @@
 package net.uku3lig.mcibot.discord;
 
-import net.dv8tion.jda.api.events.interaction.ModalInteractionEvent;
-import net.dv8tion.jda.api.interactions.components.Modal;
+import discord4j.core.event.domain.interaction.ModalSubmitInteractionEvent;
+import discord4j.core.spec.InteractionPresentModalSpec;
 
-public interface IModal {
-    Modal getModal();
-
-    void onModal(ModalInteractionEvent event);
+public interface IModal extends InteractionHandler<ModalSubmitInteractionEvent> {
+    InteractionPresentModalSpec getModal();
 }

@@ -29,9 +29,7 @@ dependencies {
     implementation "org.springframework.boot:spring-boot-starter-webflux"
     developmentOnly "org.springframework.boot:spring-boot-devtools"
 
-    implementation("net.dv8tion:JDA:5.0.0-alpha.21") {
-        exclude module: 'opus-java'
-    }
+    implementation "com.discord4j:discord4j-core:3.2.3"
     implementation "com.moandjiezana.toml:toml4j:0.7.2"
     implementation "org.reflections:reflections:0.10.2"
     runtimeOnly 'org.mariadb.jdbc:mariadb-java-client:3.0.8'

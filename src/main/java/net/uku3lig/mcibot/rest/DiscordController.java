@@ -1,9 +1,12 @@
 package net.uku3lig.mcibot.rest;
 
+import discord4j.common.util.Snowflake;
+import discord4j.core.GatewayDiscordClient;
+import discord4j.core.object.component.ActionRow;
+import discord4j.core.object.component.Button;
+import discord4j.core.object.entity.User;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import net.dv8tion.jda.api.entities.User;
-import net.dv8tion.jda.api.interactions.components.buttons.Button;
 import net.uku3lig.mcibot.MCIBot;
 import net.uku3lig.mcibot.config.Config;
 import net.uku3lig.mcibot.jpa.ServerRepository;
@@ -24,9 +27,9 @@ import java.util.Base64;
 @RequiredArgsConstructor
 @Slf4j
 public class DiscordController {
-    // url: http://localhost:8080/discord/oauth?redirectUri=http://localhost:8080/discord
     private DiscordUtil discord;
     private final ServerRepository repository;
+    private final GatewayDiscordClient client;
 
 
     @GetMapping("/discord/oauth")
@@ -48,11 +51,11 @@ public class DiscordController {
                 .map(TokenResponse::getAccessToken)
                 .flatMap(discord::getUser)
                 .map(DiscordUser::getId)
-                .subscribe(id -> MCIBot.getJda().retrieveUserById(id)
-                        .flatMap(User::openPrivateChannel)
-                        .flatMap(pc -> pc.sendMessageFormat("%s has requested to link the minecraft server to the discord server %s", minecraftName, guildId)
-                                .addActionRow(Button.secondary("lol", "haha cant click me").withDisabled(true)))
-                        .complete());
+                .flatMap(id -> client.getUserById(Snowflake.of(id)))
+                .flatMap(User::getPrivateChannel)
+                .flatMap(pc -> pc.createMessage("%s has requested to link the minecraft server to the discord server %s".formatted(minecraftName, guildId))
+                        .withComponents(ActionRow.of(Button.secondary("lol", "haha cant click me").disabled(true))))
+                .subscribe();
 
         Server server = new Server(guildId, minecraftId);
         repository.save(server);
