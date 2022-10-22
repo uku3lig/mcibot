@@ -1,4 +1,4 @@
-package net.uku3lig.mcibot.discord;
+package net.uku3lig.mcibot.discord.core;
 
 import discord4j.core.event.domain.interaction.DeferrableInteractionEvent;
 import reactor.core.publisher.Mono;

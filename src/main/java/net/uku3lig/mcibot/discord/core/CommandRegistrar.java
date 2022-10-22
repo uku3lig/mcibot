@@ -1,4 +1,4 @@
-package net.uku3lig.mcibot.discord;
+package net.uku3lig.mcibot.discord.core;
 
 import discord4j.discordjson.json.ApplicationCommandRequest;
 import discord4j.rest.RestClient;

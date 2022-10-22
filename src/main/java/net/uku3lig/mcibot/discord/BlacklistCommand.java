@@ -12,6 +12,7 @@ import discord4j.discordjson.json.ApplicationCommandRequest;
 import lombok.Data;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import net.uku3lig.mcibot.discord.core.ICommand;
 import net.uku3lig.mcibot.jpa.ServerRepository;
 import net.uku3lig.mcibot.model.BlacklistedUser;
 import net.uku3lig.mcibot.model.Server;
@@ -93,9 +94,7 @@ public class BlacklistCommand implements ICommand {
                         .flatMap(Guild::getOwner)
                         .flatMap(User::getPrivateChannel)
                         .flatMap(c -> c.createMessage(fmt.formatted(user, p.getName(), "uhuhuh")))
-                        .doOnError(e -> log.error("Error sending message to guild owner", e))
-                        .last()).then())
-                .doOnError(e -> log.error("Error getting user", e));
+                        .last()).then());
         // todo check if user is already blacklisted
         // todo add button to say hi :3 aer you sure you want to blacklist the user :3
     }
