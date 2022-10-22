@@ -20,6 +20,7 @@ import net.uku3lig.mcibot.jpa.ServerRepository;
 import net.uku3lig.mcibot.jpa.UserRepository;
 import net.uku3lig.mcibot.model.BlacklistedUser;
 import net.uku3lig.mcibot.model.Server;
+import net.uku3lig.mcibot.util.Util;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Component;
 import org.springframework.stereotype.Service;
@@ -49,8 +50,8 @@ public class BlacklistCommand implements ICommand {
                 .name("blacklist")
                 .description("Blacklist an user.")
                 .addOption(ApplicationCommandOptionData.builder()
-                        .name("uuid")
-                        .description("The user's UUID.")
+                        .name("username")
+                        .description("The user's Minecraft username.")
                         .type(STRING.getValue())
                         .required(true)
                         .build())
@@ -70,8 +71,8 @@ public class BlacklistCommand implements ICommand {
 
     @Override
     public Mono<Void> onInteraction(ChatInputInteractionEvent event) {
-        UUID uuid = event.getOption("uuid").flatMap(ApplicationCommandInteractionOption::getValue)
-                .map(ApplicationCommandInteractionOptionValue::asString).map(UUID::fromString).orElse(UUID.randomUUID());
+        String username = event.getOption("username").flatMap(ApplicationCommandInteractionOption::getValue)
+                .map(ApplicationCommandInteractionOptionValue::asString).orElse("");
         Mono<User> user = event.getOption("user").flatMap(ApplicationCommandInteractionOption::getValue)
                 .map(ApplicationCommandInteractionOptionValue::asUser).orElse(Mono.empty());
         String reason = event.getOption("reason").flatMap(ApplicationCommandInteractionOption::getValue)
@@ -82,25 +83,26 @@ public class BlacklistCommand implements ICommand {
                 return event.reply("User is already blacklisted.");
             }
 
-            BlacklistedUser blacklistedUser = new BlacklistedUser(uuid, u.getId().asString(), reason);
-            ConfirmButton button = new ConfirmButton(Arrays.asList(uuid.toString(), u.getId().asString(), reason));
-
-            return webClient.get().uri("/user/profile/" + uuid).exchangeToMono(res -> {
+            return webClient.get().uri("/users/profiles/minecraft/" + username).exchangeToMono(res -> {
                 if (res.statusCode().equals(HttpStatus.NO_CONTENT)) {
-                    return event.reply("User `%s` was not found, are you sure the UUID is correct?".formatted(uuid)).then(Mono.empty());
+                    return event.reply("User `%s` was not found, are you sure the username is correct?".formatted(username)).then(Mono.empty());
                 } else if (!res.statusCode().equals(HttpStatus.OK)) {
                     return event.reply("An unknown error happened. (`%d`)".formatted(res.statusCode().value()))
                             .flatMap(v -> res.bodyToMono(String.class)).map(RuntimeException::new).flatMap(Mono::error);
                 } else {
-                    return res.bodyToMono(Profile.class);
+                    return res.bodyToMono(Profile.class).map(Profile::getId).map(Util::convertUUID);
                 }
-            }).then(event.reply("Are you sure you want to blacklist this user? (user: `%s`)".formatted(blacklistedUser)).withComponents(ActionRow.of(button.getButton())));
+            }).flatMap(uuid -> {
+                BlacklistedUser blacklistedUser = new BlacklistedUser(uuid, u.getId().asString(), reason);
+                ConfirmButton button = new ConfirmButton(Arrays.asList(uuid.toString(), u.getId().asString(), reason));
+                return event.reply("Are you sure you want to blacklist this user? (user: `%s`)".formatted(blacklistedUser)).withComponents(ActionRow.of(button.getButton()));
+            });
         });
     }
 
     @Data
     private static class Profile {
-        private String name;
+        private String id;
     }
 
     @Component
