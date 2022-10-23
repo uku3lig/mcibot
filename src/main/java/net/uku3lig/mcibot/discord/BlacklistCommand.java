@@ -93,9 +93,9 @@ public class BlacklistCommand implements ICommand {
                     return res.bodyToMono(Profile.class).map(Profile::getId).map(Util::convertUUID);
                 }
             }).flatMap(uuid -> {
-                BlacklistedUser blacklistedUser = new BlacklistedUser(uuid, u.getId().asString(), reason);
                 ConfirmButton button = new ConfirmButton(Arrays.asList(uuid.toString(), u.getId().asString(), reason));
-                return event.reply("Are you sure you want to blacklist this user? (user: `%s`)".formatted(blacklistedUser)).withComponents(ActionRow.of(button.getButton()));
+                return event.reply("Are you sure you want to blacklist this user? (discord: `%s`, minecraft: `%s`)".formatted(u.getTag(), username))
+                        .withComponents(ActionRow.of(button.getButton()));
             });
         });
     }
