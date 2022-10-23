@@ -11,7 +11,6 @@ import discord4j.core.object.entity.Guild;
 import discord4j.core.object.entity.User;
 import discord4j.discordjson.json.ApplicationCommandOptionData;
 import discord4j.discordjson.json.ApplicationCommandRequest;
-import lombok.Data;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import net.uku3lig.mcibot.discord.core.IButton;
@@ -21,10 +20,8 @@ import net.uku3lig.mcibot.jpa.UserRepository;
 import net.uku3lig.mcibot.model.BlacklistedUser;
 import net.uku3lig.mcibot.model.Server;
 import net.uku3lig.mcibot.util.Util;
-import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Component;
 import org.springframework.stereotype.Service;
-import org.springframework.web.reactive.function.client.WebClient;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
@@ -39,8 +36,6 @@ import static discord4j.core.object.command.ApplicationCommandOption.Type.USER;
 @Service
 @RequiredArgsConstructor
 public class BlacklistCommand implements ICommand {
-    private static final WebClient webClient = WebClient.create("https://api.mojang.com");
-
     private final ServerRepository serverRepository;
     private final UserRepository userRepository;
 
@@ -83,26 +78,12 @@ public class BlacklistCommand implements ICommand {
                 return event.reply("User is already blacklisted.");
             }
 
-            return webClient.get().uri("/users/profiles/minecraft/" + username).exchangeToMono(res -> {
-                if (res.statusCode().equals(HttpStatus.NO_CONTENT)) {
-                    return event.reply("User `%s` was not found, are you sure the username is correct?".formatted(username)).then(Mono.empty());
-                } else if (!res.statusCode().equals(HttpStatus.OK)) {
-                    return event.reply("An unknown error happened. (`%d`)".formatted(res.statusCode().value()))
-                            .flatMap(v -> res.bodyToMono(String.class)).map(RuntimeException::new).flatMap(Mono::error);
-                } else {
-                    return res.bodyToMono(Profile.class).map(Profile::getId).map(Util::convertUUID);
-                }
-            }).flatMap(uuid -> {
+            return Util.getMinecraftUUID(username).doOnError(t -> event.reply(t.getMessage())).flatMap(uuid -> {
                 ConfirmButton button = new ConfirmButton(Arrays.asList(uuid.toString(), u.getId().asString(), reason));
                 return event.reply("Are you sure you want to blacklist this user? (discord: `%s`, minecraft: `%s`)".formatted(u.getTag(), username))
                         .withComponents(ActionRow.of(button.getButton()));
             });
         });
-    }
-
-    @Data
-    private static class Profile {
-        private String id;
     }
 
     @Component
