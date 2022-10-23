@@ -9,12 +9,14 @@ import discord4j.core.object.command.ApplicationCommandInteractionOptionValue;
 import discord4j.core.object.component.ActionRow;
 import discord4j.core.object.component.Button;
 import discord4j.core.object.entity.Guild;
+import discord4j.core.object.entity.Message;
 import discord4j.core.object.entity.User;
 import discord4j.core.spec.InteractionReplyEditMono;
 import discord4j.discordjson.json.ApplicationCommandOptionData;
 import discord4j.discordjson.json.ApplicationCommandRequest;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import net.uku3lig.mcibot.discord.core.IButton;
 import net.uku3lig.mcibot.discord.core.ICommand;
 import net.uku3lig.mcibot.jpa.ServerRepository;
 import net.uku3lig.mcibot.jpa.UserRepository;
@@ -35,6 +37,9 @@ import static discord4j.core.object.command.ApplicationCommandOption.Type.USER;
 @Service
 @RequiredArgsConstructor
 public class BlacklistCommand implements ICommand {
+    private static final ActionRow BLACKLISTED = ActionRow.of(Button.success("blacklisted", "Blacklisted").disabled());
+    private static final ActionRow NOT_BLACKLISTED = ActionRow.of(Button.secondary("cancelled", "Cancelled").disabled());
+
     private final GatewayDiscordClient client;
     private final ServerRepository serverRepository;
     private final UserRepository userRepository;
@@ -78,21 +83,21 @@ public class BlacklistCommand implements ICommand {
                 return event.reply("User is already blacklisted.");
             }
 
-            final Button button = Button.success("confirm", "Confirm");
+            final Button button = Button.danger("confirm", "Confirm");
 
             return event.reply("Are you sure you want to blacklist this user? (discord: `%s`, minecraft: `%s`)".formatted(u.getTag(), username))
-                    .withComponents(ActionRow.of(button))
+                    .withComponents(ActionRow.of(button, new CancelButton().getButton()))
                     .then(getConfirmListener(username, u, reason, event.editReply()));
         });
     }
 
     private Mono<Void> getConfirmListener(String username, User user, String reason, InteractionReplyEditMono edit) {
-        final Button button = Button.success("blacklist_confirm", "Blacklist");
+        final Button button = Button.danger("blacklist_confirm", "Blacklist");
 
         return client.on(ButtonInteractionEvent.class, evt -> {
                     if (!evt.getCustomId().equals("confirm")) return Mono.empty();
 
-                    return evt.edit().withComponents()
+                    return evt.edit().withComponents(BLACKLISTED)
                             .then(Util.getMinecraftUUID(username))
                             .map(uuid -> new BlacklistedUser(user.getId().asString(), uuid, reason))
                             .flatMap(bu -> Mono.fromRunnable(() -> userRepository.save(bu))
@@ -102,20 +107,20 @@ public class BlacklistCommand implements ICommand {
                                             .flatMap(Guild::getOwner)
                                             .flatMap(User::getPrivateChannel)
                                             .flatMap(c -> c.createMessage("The MCI admin team has blacklisted a new user (discord: `%s`, minecraft: `%s`)"
-                                                    .formatted(user.getTag(), username)).withComponents(ActionRow.of(button)))
-                                            .thenMany(getBlacklistListener(bu, server))
+                                                    .formatted(user.getTag(), username)).withComponents(ActionRow.of(button, new CancelButton().getButton())))
+                                            .flatMap(msg -> getBlacklistListener(bu, server, msg))
                                             .doOnError(t -> log.error("Could not send blacklist message to owner.", t))
                                     ).then());
                 }).timeout(Duration.ofMinutes(5))
-                .onErrorResume(TimeoutException.class, t -> edit.withComponents().then())
+                .onErrorResume(TimeoutException.class, t -> edit.withComponents(NOT_BLACKLISTED).then())
                 .then();
     }
 
-    private Mono<Void> getBlacklistListener(BlacklistedUser user, Server server) {
+    private Mono<Void> getBlacklistListener(BlacklistedUser user, Server server, Message msg) {
         return client.on(ButtonInteractionEvent.class, evt -> {
                     if (!evt.getCustomId().equals("blacklist_confirm")) return Mono.empty();
 
-                    return evt.edit().withComponents()
+                    return evt.edit().withComponents(BLACKLISTED)
                             .then(Mono.fromRunnable(() -> {
                                 server.getBlacklistedUsers().add(user);
                                 serverRepository.save(server);
@@ -125,7 +130,20 @@ public class BlacklistCommand implements ICommand {
                             //.flatMap(ban from minecraft) TODO
                             .then(evt.createFollowup("User has been banned.").withEphemeral(true));
                 }).timeout(Duration.ofDays(7))
-                .onErrorResume(TimeoutException.class, t -> Mono.empty())
+                .onErrorResume(TimeoutException.class, t -> msg.edit().withComponents(NOT_BLACKLISTED))
                 .then();
+    }
+
+    @Service
+    private static class CancelButton implements IButton {
+        @Override
+        public Button getButton() {
+            return Button.secondary("cancel", "Cancel");
+        }
+
+        @Override
+        public Mono<Void> onInteraction(ButtonInteractionEvent event) {
+            return event.edit().withComponents(NOT_BLACKLISTED).then();
+        }
     }
 }

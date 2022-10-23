@@ -8,9 +8,7 @@ import org.springframework.stereotype.Component;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
-import javax.annotation.Nonnull;
 import java.util.List;
-import java.util.Optional;
 
 @Component
 public class InteractionListener {
@@ -39,32 +37,15 @@ public class InteractionListener {
 
     public Mono<Void> onButton(ButtonInteractionEvent event) {
         return Flux.fromIterable(buttons)
-                .filter(ib -> buttonEquals(ib, event.getCustomId()))
+                .filter(ib -> event.getCustomId().equals(ib.getButton().getCustomId().orElse("")))
                 .next()
                 .flatMap(ib -> ib.onInteraction(event));
     }
 
     public Mono<Void> onModal(ModalSubmitInteractionEvent event) {
         return Flux.fromIterable(modals)
-                .filter(im -> modalEquals(im, event.getCustomId()))
+                .filter(im -> event.getCustomId().equals(im.getModal().customId().get()))
                 .next()
                 .flatMap(im -> im.onInteraction(event));
-    }
-
-    private boolean buttonEquals(@Nonnull IButton iButton, @Nonnull String buttonId) {
-        Optional<String> iButtonId = iButton.getButton().getCustomId();
-        if (iButtonId.isEmpty() || buttonId.isEmpty()) return false;
-        if (iButtonId.get().equalsIgnoreCase(buttonId)) return true;
-
-        String iButtonSplit = iButtonId.get().split(",")[0];
-        String buttonSplit = buttonId.split(",")[0];
-        return iButtonSplit.equalsIgnoreCase(buttonSplit);
-    }
-
-    private boolean modalEquals(@Nonnull IModal iModal, @Nonnull String modalId) {
-        Optional<String> iModalId = iModal.getModal().customId().toOptional();
-        if (iModalId.isEmpty() || modalId.isEmpty()) return false;
-
-        return iModalId.get().equalsIgnoreCase(modalId);
     }
 }
