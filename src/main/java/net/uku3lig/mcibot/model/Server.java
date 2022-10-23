@@ -1,11 +1,14 @@
 package net.uku3lig.mcibot.model;
 
 import jakarta.persistence.Entity;
+import jakarta.persistence.FetchType;
 import jakarta.persistence.Id;
+import jakarta.persistence.ManyToMany;
 import jakarta.validation.constraints.NotNull;
 import lombok.*;
 
 import java.util.Objects;
+import java.util.Set;
 
 @Getter
 @Setter
@@ -20,6 +23,9 @@ public class Server {
 
     @NotNull
     private Long minecraftId;
+
+    @ManyToMany(fetch = FetchType.EAGER)
+    private Set<BlacklistedUser> blacklistedUsers;
 
     @Override
     public boolean equals(Object o) {

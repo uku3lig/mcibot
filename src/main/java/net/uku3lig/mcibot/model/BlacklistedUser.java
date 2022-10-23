@@ -15,8 +15,8 @@ import java.util.UUID;
 @Entity
 public class BlacklistedUser {
     @Id
-    private UUID minecraftUuid;
     private String discordId;
+    private UUID minecraftUuid;
     private String reason;
 
     @Override

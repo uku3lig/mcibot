@@ -22,6 +22,7 @@ import org.springframework.web.servlet.ModelAndView;
 
 import java.nio.charset.StandardCharsets;
 import java.util.Base64;
+import java.util.HashSet;
 
 @RestController
 @RequiredArgsConstructor
@@ -57,7 +58,7 @@ public class DiscordController {
                         .withComponents(ActionRow.of(Button.secondary("lol", "haha cant click me").disabled(true))))
                 .subscribe();
 
-        Server server = new Server(guildId, minecraftId);
+        Server server = new Server(guildId, minecraftId, new HashSet<>());
         repository.save(server);
 
         return new ModelAndView("redirect:https://discord.com/oauth2/authorized");
