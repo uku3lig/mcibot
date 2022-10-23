@@ -1,6 +1,7 @@
 package net.uku3lig.mcibot.discord;
 
 import discord4j.common.util.Snowflake;
+import discord4j.core.GatewayDiscordClient;
 import discord4j.core.event.domain.interaction.ButtonInteractionEvent;
 import discord4j.core.event.domain.interaction.ChatInputInteractionEvent;
 import discord4j.core.object.command.ApplicationCommandInteractionOption;
@@ -13,21 +14,18 @@ import discord4j.discordjson.json.ApplicationCommandOptionData;
 import discord4j.discordjson.json.ApplicationCommandRequest;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import net.uku3lig.mcibot.discord.core.IButton;
 import net.uku3lig.mcibot.discord.core.ICommand;
 import net.uku3lig.mcibot.jpa.ServerRepository;
 import net.uku3lig.mcibot.jpa.UserRepository;
 import net.uku3lig.mcibot.model.BlacklistedUser;
 import net.uku3lig.mcibot.model.Server;
 import net.uku3lig.mcibot.util.Util;
-import org.springframework.stereotype.Component;
 import org.springframework.stereotype.Service;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
-import java.util.Arrays;
-import java.util.List;
-import java.util.UUID;
+import java.time.Duration;
+import java.util.concurrent.TimeoutException;
 
 import static discord4j.core.object.command.ApplicationCommandOption.Type.STRING;
 import static discord4j.core.object.command.ApplicationCommandOption.Type.USER;
@@ -36,6 +34,7 @@ import static discord4j.core.object.command.ApplicationCommandOption.Type.USER;
 @Service
 @RequiredArgsConstructor
 public class BlacklistCommand implements ICommand {
+    private final GatewayDiscordClient client;
     private final ServerRepository serverRepository;
     private final UserRepository userRepository;
 
@@ -78,41 +77,33 @@ public class BlacklistCommand implements ICommand {
                 return event.reply("User is already blacklisted.");
             }
 
-            return Util.getMinecraftUUID(username).doOnError(t -> event.reply(t.getMessage())).flatMap(uuid -> {
-                ConfirmButton button = new ConfirmButton(Arrays.asList(uuid.toString(), u.getId().asString(), reason));
-                return event.reply("Are you sure you want to blacklist this user? (discord: `%s`, minecraft: `%s`)".formatted(u.getTag(), username))
-                        .withComponents(ActionRow.of(button.getButton()));
-            });
-        });
-    }
+            Button button = Button.success("blacklist_confirm", "Confirm");
 
-    @Component
-    private class ConfirmButton extends IButton {
-
-        protected ConfirmButton(List<String> args) {
-            super(args);
-        }
-
-        @Override
-        public Button getButton() {
-            return Button.success(getId("confirm"), "Confirm");
-        }
-
-        @Override
-        public Mono<Void> onButtonClick(ButtonInteractionEvent event, List<String> args) {
-            BlacklistedUser blacklistedUser = new BlacklistedUser(UUID.fromString(args.get(0)), args.get(1), args.get(2));
-            return event.edit().withComponents()
-                    .then(Mono.fromRunnable(() -> userRepository.save(blacklistedUser)))
-                    .then(Mono.fromFuture(serverRepository.findAll()))
-                    .flatMapMany(Flux::fromIterable)
-                    .map(Server::getDiscordId)
-                    .map(Snowflake::of)
-                    .flatMap(event.getClient()::getGuildById)
-                    .flatMap(Guild::getOwner)
-                    .flatMap(User::getPrivateChannel)
-                    .flatMap(c -> c.createMessage(blacklistedUser.toString()))
-                    .doOnError(t -> log.error("Could not send blacklist message to owner.", t))
+            Mono<Void> buttonListener = client.on(ButtonInteractionEvent.class, evt -> {
+                        if (!evt.getCustomId().equals("blacklist_confirm")) return Mono.empty();
+                        return evt.edit().withComponents()
+                                .then(Util.getMinecraftUUID(username))
+                                .map(uuid -> new BlacklistedUser(uuid, u.getId().asString(), reason))
+                                .flatMap(bu -> Mono.fromRunnable(() -> userRepository.save(bu)))
+                                .then(Mono.fromFuture(serverRepository.findAll()))
+                                .flatMapMany(Flux::fromIterable)
+                                .map(Server::getDiscordId)
+                                .map(Snowflake::of)
+                                .flatMap(event.getClient()::getGuildById)
+                                .flatMap(Guild::getOwner)
+                                .flatMap(User::getPrivateChannel)
+                                .flatMap(c -> c.createMessage("The MCI admin team has blacklisted a new user (discord: `%s`, minecraft: `%s`)"
+                                        .formatted(u.getTag(), username)).withComponents(ActionRow.of(button)))
+                                .doOnError(t -> log.error("Could not send blacklist message to owner.", t))
+                                .then();
+                    })
+                    .timeout(Duration.ofMinutes(5))
+                    .onErrorResume(TimeoutException.class, t -> event.editReply().withComponents().then())
                     .then();
-        }
+
+            return event.reply("Are you sure you want to blacklist this user? (discord: `%s`, minecraft: `%s`)".formatted(u.getTag(), username))
+                    .withComponents(ActionRow.of(button))
+                    .then(buttonListener);
+        });
     }
 }
