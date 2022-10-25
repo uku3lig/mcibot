@@ -9,6 +9,7 @@ import lombok.*;
 
 import java.util.Objects;
 import java.util.Set;
+import java.util.UUID;
 
 @Getter
 @Setter
@@ -18,11 +19,10 @@ import java.util.Set;
 @Entity
 public class Server {
     @Id
-    @NotNull
-    private Long discordId;
+    private long discordId;
 
     @NotNull
-    private Long minecraftId;
+    private UUID minecraftId;
 
     @ManyToMany(fetch = FetchType.EAGER)
     private Set<BlacklistedUser> blacklistedUsers;

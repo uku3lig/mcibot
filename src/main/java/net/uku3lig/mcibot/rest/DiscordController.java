@@ -23,6 +23,7 @@ import org.springframework.web.servlet.ModelAndView;
 import java.nio.charset.StandardCharsets;
 import java.util.Base64;
 import java.util.HashSet;
+import java.util.UUID;
 
 @RestController
 @RequiredArgsConstructor
@@ -45,7 +46,7 @@ public class DiscordController {
         if (isDiscordBroken()) return Util.error("Client ID or secret not set");
 
         String[] decodedState = new String(Base64.getDecoder().decode(state), StandardCharsets.UTF_8).split("\n");
-        long minecraftId = Long.parseLong(decodedState[0]);
+        UUID minecraftId = UUID.fromString(decodedState[0]);
         String minecraftName = decodedState[1];
 
         discord.getAccessToken(code, "http://localhost:8080/discord")

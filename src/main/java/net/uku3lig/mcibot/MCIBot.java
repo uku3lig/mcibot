@@ -1,11 +1,16 @@
 package net.uku3lig.mcibot;
 
+import com.rabbitmq.client.ConnectionFactory;
 import discord4j.core.DiscordClientBuilder;
 import discord4j.core.GatewayDiscordClient;
 import discord4j.rest.RestClient;
 import lombok.Getter;
 import net.uku3lig.mcibot.config.Config;
 import net.uku3lig.mcibot.config.ConfigManager;
+import org.springframework.amqp.core.DirectExchange;
+import org.springframework.amqp.core.Exchange;
+import org.springframework.amqp.support.converter.Jackson2JsonMessageConverter;
+import org.springframework.amqp.support.converter.MessageConverter;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
 import org.springframework.context.annotation.Bean;
@@ -43,5 +48,23 @@ public class MCIBot {
     @Bean
     public RestClient restClient(GatewayDiscordClient client) {
         return client.getRestClient();
+    }
+
+    @Bean
+    public ConnectionFactory connectionFactory() {
+        ConnectionFactory factory = new ConnectionFactory();
+        factory.setHost(manager.getConfig().getRabbitMqHost());
+        factory.setPort(manager.getConfig().getRabbitMqPort());
+        return factory;
+    }
+
+    @Bean
+    public Exchange exchange() {
+        return new DirectExchange("direct_logs", false, false);
+    }
+
+    @Bean
+    public MessageConverter messageConverter() {
+        return new Jackson2JsonMessageConverter();
     }
 }

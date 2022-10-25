@@ -4,6 +4,7 @@ import jakarta.persistence.Entity;
 import jakarta.persistence.Id;
 import lombok.*;
 
+import java.io.Serializable;
 import java.util.Objects;
 import java.util.UUID;
 
@@ -13,7 +14,7 @@ import java.util.UUID;
 @NoArgsConstructor
 @ToString
 @Entity
-public class BlacklistedUser {
+public class BlacklistedUser implements Serializable {
     @Id
     private String discordId;
     private UUID minecraftUuid;

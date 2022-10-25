@@ -14,6 +14,8 @@ import discord4j.core.object.entity.User;
 import discord4j.core.spec.InteractionReplyEditMono;
 import discord4j.discordjson.json.ApplicationCommandOptionData;
 import discord4j.discordjson.json.ApplicationCommandRequest;
+import lombok.AllArgsConstructor;
+import lombok.Data;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import net.uku3lig.mcibot.discord.core.IButton;
@@ -23,6 +25,7 @@ import net.uku3lig.mcibot.jpa.UserRepository;
 import net.uku3lig.mcibot.model.BlacklistedUser;
 import net.uku3lig.mcibot.model.Server;
 import net.uku3lig.mcibot.util.Util;
+import org.springframework.amqp.rabbit.core.RabbitTemplate;
 import org.springframework.stereotype.Service;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
@@ -43,6 +46,7 @@ public class BlacklistCommand implements ICommand {
     private final GatewayDiscordClient client;
     private final ServerRepository serverRepository;
     private final UserRepository userRepository;
+    private final RabbitTemplate rabbitTemplate;
 
     @Override
     public ApplicationCommandRequest getCommandData() {
@@ -94,6 +98,7 @@ public class BlacklistCommand implements ICommand {
     private Mono<Void> getConfirmListener(String username, User user, String reason, InteractionReplyEditMono edit) {
         final Button button = Button.danger("blacklist_confirm", "Blacklist");
 
+        // FIXME cancel the listener on click
         return client.on(ButtonInteractionEvent.class, evt -> {
                     if (!evt.getCustomId().equals("confirm")) return Mono.empty();
 
@@ -108,7 +113,7 @@ public class BlacklistCommand implements ICommand {
                                             .flatMap(User::getPrivateChannel)
                                             .flatMap(c -> c.createMessage("The MCI admin team has blacklisted a new user (discord: `%s`, minecraft: `%s`)"
                                                     .formatted(user.getTag(), username)).withComponents(ActionRow.of(button, new CancelButton().getButton())))
-                                            .flatMap(msg -> getBlacklistListener(bu, server, msg))
+                                            .flatMap(msg -> getBlacklistListener(bu, server, username, msg))
                                             .doOnError(t -> log.error("Could not send blacklist message to owner.", t))
                                     ).then());
                 }).timeout(Duration.ofMinutes(5))
@@ -116,7 +121,7 @@ public class BlacklistCommand implements ICommand {
                 .then();
     }
 
-    private Mono<Void> getBlacklistListener(BlacklistedUser user, Server server, Message msg) {
+    private Mono<Void> getBlacklistListener(BlacklistedUser user, Server server, String username, Message msg) {
         return client.on(ButtonInteractionEvent.class, evt -> {
                     if (!evt.getCustomId().equals("blacklist_confirm")) return Mono.empty();
 
@@ -127,11 +132,23 @@ public class BlacklistCommand implements ICommand {
                             }))
                             .then(client.getGuildById(Snowflake.of(server.getDiscordId())))
                             .flatMap(g -> g.ban(Snowflake.of(user.getDiscordId())).withReason(user.getReason()))
-                            //.flatMap(ban from minecraft) TODO
+                            .onErrorResume(t -> Mono.empty())
+                            .then(Mono.fromRunnable(() -> {
+                                MinecraftUser mcUser = new MinecraftUser(username, user.getReason());
+                                log.info("Sending {} to RabbitMQ.", mcUser);
+                                rabbitTemplate.convertAndSend("direct_logs", server.getMinecraftId().toString(), mcUser);
+                            }))
                             .then(evt.createFollowup("User has been banned.").withEphemeral(true));
                 }).timeout(Duration.ofDays(7))
                 .onErrorResume(TimeoutException.class, t -> msg.edit().withComponents(NOT_BLACKLISTED))
                 .then();
+    }
+
+    @Data
+    @AllArgsConstructor
+    public static class MinecraftUser {
+        private String username;
+        private String reason;
     }
 
     @Service
