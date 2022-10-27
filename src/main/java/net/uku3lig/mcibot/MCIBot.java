@@ -1,6 +1,5 @@
 package net.uku3lig.mcibot;
 
-import com.rabbitmq.client.ConnectionFactory;
 import discord4j.core.DiscordClientBuilder;
 import discord4j.core.GatewayDiscordClient;
 import discord4j.rest.RestClient;
@@ -9,6 +8,7 @@ import net.uku3lig.mcibot.config.Config;
 import net.uku3lig.mcibot.config.ConfigManager;
 import org.springframework.amqp.core.DirectExchange;
 import org.springframework.amqp.core.Exchange;
+import org.springframework.amqp.rabbit.connection.CachingConnectionFactory;
 import org.springframework.amqp.support.converter.Jackson2JsonMessageConverter;
 import org.springframework.amqp.support.converter.MessageConverter;
 import org.springframework.boot.SpringApplication;
@@ -51,8 +51,8 @@ public class MCIBot {
     }
 
     @Bean
-    public ConnectionFactory connectionFactory() {
-        ConnectionFactory factory = new ConnectionFactory();
+    public CachingConnectionFactory connectionFactory() {
+        CachingConnectionFactory factory = new CachingConnectionFactory();
         factory.setHost(manager.getConfig().getRabbitMqHost());
         factory.setPort(manager.getConfig().getRabbitMqPort());
         return factory;
