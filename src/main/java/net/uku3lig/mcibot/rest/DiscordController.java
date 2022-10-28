@@ -54,6 +54,7 @@ public class DiscordController {
                 .flatMap(discord::getUser)
                 .map(DiscordUser::getId)
                 .flatMap(id -> client.getUserById(Snowflake.of(id)))
+                .doOnNext(u -> log.info("User {} linked discord server {} to minecraft server {}", u.getTag(), guildId, minecraftId))
                 .flatMap(User::getPrivateChannel)
                 .flatMap(pc -> pc.createMessage("%s has requested to link the minecraft server to the discord server %s".formatted(minecraftName, guildId))
                         .withComponents(ActionRow.of(Button.secondary("lol", "haha cant click me").disabled(true))))

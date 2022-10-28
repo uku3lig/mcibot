@@ -102,6 +102,7 @@ public class BlacklistCommand implements ICommand {
 
         return client.on(ButtonInteractionEvent.class, evt -> {
                     if (!evt.getCustomId().equals("confirm_" + time)) return Mono.empty();
+                    log.info("New globally blacklisted user: minecraft={}, discord={}, by={}", username, user.getTag(), evt.getInteraction().getUser().getTag());
 
                     return evt.edit().withComponents(BLACKLISTED)
                             .then(Util.getMinecraftUUID(username))
@@ -126,6 +127,7 @@ public class BlacklistCommand implements ICommand {
     private Mono<Void> getBlacklistListener(BlacklistedUser user, Server server, String username, long time, Message msg) {
         return client.on(ButtonInteractionEvent.class, evt -> {
                     if (!evt.getCustomId().equals("blacklist_confirm_" + time)) return Mono.empty();
+                    log.info("Server owner {} blacklisted {} on server {}", evt.getInteraction().getUser().getTag(), username, server.getMinecraftId());
 
                     return evt.edit().withComponents(BLACKLISTED)
                             .then(Mono.fromRunnable(() -> {
