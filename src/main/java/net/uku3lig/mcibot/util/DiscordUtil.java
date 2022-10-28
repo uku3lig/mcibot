@@ -49,8 +49,4 @@ public class DiscordUtil {
                 .retrieve()
                 .bodyToMono(DiscordUser.class);
     }
-
-    public String getAvatarUrl(DiscordUser user) {
-        return "https://cdn.discordapp.com/avatars/" + user.getId() + "/" + user.getAvatar() + ".png?size=4096";
-    }
 }

@@ -14,8 +14,6 @@ import java.util.function.Supplier;
  */
 @Slf4j
 public class ConfigManager<T extends IConfig<T>> {
-    private final ConfigSerializer<T> serializer;
-
     /**
      * The config held by the manager.
      */
@@ -24,11 +22,9 @@ public class ConfigManager<T extends IConfig<T>> {
 
     /**
      * Creates a manager.
-     * @param serializer The serializer
      * @param config The initial config
      */
-    public ConfigManager(ConfigSerializer<T> serializer, T config) {
-        this.serializer = serializer;
+    public ConfigManager(T config) {
         this.config = config;
     }
 
@@ -37,7 +33,7 @@ public class ConfigManager<T extends IConfig<T>> {
      * @param serializer The serializer
      */
     public ConfigManager(ConfigSerializer<T> serializer) {
-        this(serializer, serializer.deserialize());
+        this(serializer.deserialize());
     }
 
     /**
@@ -53,13 +49,6 @@ public class ConfigManager<T extends IConfig<T>> {
         String filename = "./" + name + ".toml";
         Supplier<T> defaultConfig = () -> newInstance(configClass).defaultConfig();
         return new ConfigManager<>(new ConfigSerializer<>(configClass, new File(filename), defaultConfig));
-    }
-
-    /**
-     * Saves the stored config.
-     */
-    public void saveConfig() {
-        serializer.serialize(config);
     }
 
     /**

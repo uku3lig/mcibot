@@ -5,7 +5,6 @@ import org.springframework.data.repository.Repository;
 import org.springframework.scheduling.annotation.Async;
 
 import java.util.List;
-import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 
 public interface ServerRepository extends Repository<Server, Long> {
@@ -13,6 +12,4 @@ public interface ServerRepository extends Repository<Server, Long> {
     CompletableFuture<List<Server>> findAll();
 
     void save(Server entity);
-
-    Optional<Server> findByDiscordId(long id);
 }
