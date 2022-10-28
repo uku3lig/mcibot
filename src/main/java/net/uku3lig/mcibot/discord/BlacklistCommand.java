@@ -84,7 +84,7 @@ public class BlacklistCommand implements ICommand {
                 .map(ApplicationCommandInteractionOptionValue::asString).orElse(null);
 
         return user.flatMap(u -> {
-            if (userRepository.existsByDiscordId(u.getId().asString())) {
+            if (userRepository.existsByDiscordAccountsContaining(u.getId().asString())) {
                 return event.reply("User is already blacklisted.");
             }
 
@@ -133,7 +133,10 @@ public class BlacklistCommand implements ICommand {
                                 serverRepository.save(server);
                             }))
                             .then(client.getGuildById(Snowflake.of(server.getDiscordId())))
-                            .flatMap(g -> g.ban(Snowflake.of(user.getDiscordId())).withReason(user.getReason()))
+                            .flatMap(g -> Flux.fromIterable(user.getDiscordAccounts())
+                                    .map(Snowflake::of)
+                                    .flatMap(s -> g.ban(s).withReason(user.getReason()))
+                                    .then())
                             .onErrorResume(t -> Mono.empty())
                             .then(Mono.fromRunnable(() -> {
                                 MinecraftUser mcUser = new MinecraftUser(username, user.getReason());

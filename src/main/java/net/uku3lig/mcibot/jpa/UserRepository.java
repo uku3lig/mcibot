@@ -6,5 +6,5 @@ import org.springframework.data.repository.Repository;
 public interface UserRepository extends Repository<BlacklistedUser, Long> {
     void save(BlacklistedUser user);
 
-    boolean existsByDiscordId(String discordId);
+    boolean existsByDiscordAccountsContaining(String discordId);
 }
