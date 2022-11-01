@@ -18,6 +18,7 @@ import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import net.uku3lig.mcibot.MCIBot;
 import net.uku3lig.mcibot.discord.core.ICommand;
 import net.uku3lig.mcibot.jpa.ServerRepository;
 import net.uku3lig.mcibot.jpa.UserRepository;
@@ -31,6 +32,7 @@ import reactor.core.publisher.Mono;
 
 import java.time.Duration;
 import java.time.Instant;
+import java.util.Optional;
 import java.util.concurrent.TimeoutException;
 
 import static discord4j.core.object.command.ApplicationCommandOption.Type.STRING;
@@ -74,9 +76,9 @@ public class BlacklistCommand implements ICommand {
 
     @Override
     public Mono<Void> onInteraction(ChatInputInteractionEvent event) {
-        if (event.getInteraction().getGuildId().isEmpty()) {
-            // command was in dms, so we reject it
-            return event.reply("This command can only be used in a server.");
+        Optional<Long> guildId = event.getInteraction().getGuildId().map(Snowflake::asLong);
+        if (guildId.isEmpty() || guildId.get() != MCIBot.getManager().getConfig().getMainDiscordId()) {
+            return event.reply("This command can only be used in the MCI server.");
         }
 
         // check if the user has the required permissions
