@@ -11,14 +11,13 @@ import discord4j.core.object.component.Button;
 import discord4j.core.object.entity.Guild;
 import discord4j.core.object.entity.Message;
 import discord4j.core.object.entity.User;
-import discord4j.core.spec.InteractionReplyEditMono;
 import discord4j.discordjson.json.ApplicationCommandOptionData;
 import discord4j.discordjson.json.ApplicationCommandRequest;
+import discord4j.rest.util.Permission;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import net.uku3lig.mcibot.discord.core.IButton;
 import net.uku3lig.mcibot.discord.core.ICommand;
 import net.uku3lig.mcibot.jpa.ServerRepository;
 import net.uku3lig.mcibot.jpa.UserRepository;
@@ -42,7 +41,6 @@ import static discord4j.core.object.command.ApplicationCommandOption.Type.USER;
 @RequiredArgsConstructor
 public class BlacklistCommand implements ICommand {
     private static final ActionRow BLACKLISTED = ActionRow.of(Button.secondary("blacklisted", "Blacklisted").disabled());
-    private static final ActionRow NOT_BLACKLISTED = ActionRow.of(Button.secondary("cancelled", "Cancelled").disabled());
 
     private final GatewayDiscordClient client;
     private final ServerRepository serverRepository;
@@ -76,6 +74,16 @@ public class BlacklistCommand implements ICommand {
 
     @Override
     public Mono<Void> onInteraction(ChatInputInteractionEvent event) {
+        if (event.getInteraction().getGuildId().isEmpty()) {
+            // command was in dms, so we reject it
+            return event.reply("This command can only be used in a server.");
+        }
+
+        // check if the user has the required permissions
+        if (!event.getInteraction().getMember().map(m -> m.getBasePermissions().block()).map(p -> p.contains(Permission.MANAGE_GUILD)).orElse(false)) {
+            return event.reply("You need to be an admin to use this command.");
+        }
+
         String username = event.getOption("username").flatMap(ApplicationCommandInteractionOption::getValue)
                 .map(ApplicationCommandInteractionOptionValue::asString).orElse("");
         Mono<User> user = event.getOption("user").flatMap(ApplicationCommandInteractionOption::getValue)
@@ -92,16 +100,20 @@ public class BlacklistCommand implements ICommand {
             final Button button = Button.primary("confirm_" + time, "Confirm");
 
             return event.reply("Are you sure you want to blacklist this user? (discord: `%s`, minecraft: `%s`)".formatted(u.getTag(), username))
-                    .withComponents(ActionRow.of(button, new CancelButton().getButton()))
-                    .then(getConfirmListener(username, u, reason, time, event.editReply()));
+                    .withComponents(ActionRow.of(button, Util.CANCEL_BUTTON))
+                    .then(getConfirmListener(username, u, reason, time, event));
         });
     }
 
-    private Mono<Void> getConfirmListener(String username, User user, String reason, long time, InteractionReplyEditMono edit) {
+    private Mono<Void> getConfirmListener(String username, User user, String reason, long time, ChatInputInteractionEvent other) {
         final Button button = Button.primary("blacklist_confirm_" + time, "Blacklist");
 
         return client.on(ButtonInteractionEvent.class, evt -> {
+                    if (evt.getCustomId().equals("cancel")) return Util.onCancel(evt, other);
                     if (!evt.getCustomId().equals("confirm_" + time)) return Mono.empty();
+                    if (!evt.getInteraction().getUser().equals(other.getInteraction().getUser()))
+                        return evt.reply("You can't confirm this blacklist.").withEphemeral(true);
+
                     log.info("New globally blacklisted user: minecraft={}, discord={}, by={}", username, user.getTag(), evt.getInteraction().getUser().getTag());
 
                     return evt.edit().withComponents(BLACKLISTED)
@@ -114,18 +126,19 @@ public class BlacklistCommand implements ICommand {
                                             .flatMap(Guild::getOwner)
                                             .flatMap(User::getPrivateChannel)
                                             .flatMap(c -> c.createMessage("The MCI admin team has blacklisted a new user (discord: `%s`, minecraft: `%s`)"
-                                                    .formatted(user.getTag(), username)).withComponents(ActionRow.of(button, new CancelButton().getButton())))
-                                            .flatMap(msg -> getBlacklistListener(bu, server, username, time, msg))
+                                                    .formatted(user.getTag(), username)).withComponents(ActionRow.of(button, Util.CANCEL_BUTTON)))
+                                            .flatMap(msg -> getBlacklistListener(bu, server, username, time, msg, evt))
                                             .doOnError(t -> log.error("Could not send blacklist message to owner.", t))
-                                    ).then(evt.createFollowup("Blacklist message sent to all owners.").withEphemeral(true)));
+                                    ).then(evt.createFollowup("Blacklist message sent to all owners.").withEphemeral(true)))
+                            .then();
                 }).timeout(Duration.ofMinutes(5))
-                .onErrorResume(TimeoutException.class, t -> edit.withComponents(NOT_BLACKLISTED))
-                .next()
-                .then();
+                .onErrorResume(TimeoutException.class, t -> other.editReply().withComponents(Util.NOT_BLACKLISTED).then())
+                .next();
     }
 
-    private Mono<Void> getBlacklistListener(BlacklistedUser user, Server server, String username, long time, Message msg) {
+    private Mono<Void> getBlacklistListener(BlacklistedUser user, Server server, String username, long time, Message msg, ButtonInteractionEvent other) {
         return client.on(ButtonInteractionEvent.class, evt -> {
+                    if (evt.getCustomId().equals("cancel")) return Util.onCancel(evt, other);
                     if (!evt.getCustomId().equals("blacklist_confirm_" + time)) return Mono.empty();
                     log.info("Server owner {} blacklisted {} on server {}", evt.getInteraction().getUser().getTag(), username, server.getMinecraftId());
 
@@ -145,11 +158,11 @@ public class BlacklistCommand implements ICommand {
                                 log.info("Sending {} to RabbitMQ.", mcUser);
                                 rabbitTemplate.convertAndSend("direct_logs", server.getMinecraftId().toString(), mcUser);
                             }))
-                            .then(evt.createFollowup("User has been banned.").withEphemeral(true));
+                            .then(evt.createFollowup("User has been banned.").withEphemeral(true))
+                            .then();
                 }).timeout(Duration.ofDays(7))
-                .onErrorResume(TimeoutException.class, t -> msg.edit().withComponents(NOT_BLACKLISTED))
-                .next()
-                .then();
+                .onErrorResume(TimeoutException.class, t -> msg.edit().withComponents(Util.NOT_BLACKLISTED).then())
+                .next();
     }
 
     @Data
@@ -157,18 +170,5 @@ public class BlacklistCommand implements ICommand {
     public static class MinecraftUser {
         private String username;
         private String reason;
-    }
-
-    @Service
-    private static class CancelButton implements IButton {
-        @Override
-        public Button getButton() {
-            return Button.secondary("cancel", "Cancel");
-        }
-
-        @Override
-        public Mono<Void> onInteraction(ButtonInteractionEvent event) {
-            return event.edit().withComponents(NOT_BLACKLISTED).then();
-        }
     }
 }

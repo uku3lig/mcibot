@@ -1,5 +1,9 @@
 package net.uku3lig.mcibot.util;
 
+import discord4j.core.event.domain.interaction.ButtonInteractionEvent;
+import discord4j.core.event.domain.interaction.InteractionCreateEvent;
+import discord4j.core.object.component.ActionRow;
+import discord4j.core.object.component.Button;
 import lombok.Data;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
@@ -12,6 +16,9 @@ import java.util.UUID;
 
 @Slf4j
 public class Util {
+    public static final Button CANCEL_BUTTON = Button.secondary("cancel", "Cancel");
+    public static final ActionRow NOT_BLACKLISTED = ActionRow.of(Button.secondary("cancelled", "Cancelled").disabled());
+
     private static final WebClient client = WebClient.create();
 
     public static ModelAndView error(String msg) {
@@ -39,6 +46,14 @@ public class Util {
                 .bodyToMono(Profile.class)
                 .map(Profile::getId)
                 .map(Util::convertUUID);
+    }
+
+    public static Mono<Void> onCancel(ButtonInteractionEvent event, InteractionCreateEvent other) {
+        if (event.getInteraction().getUser().equals(other.getInteraction().getUser())) {
+            return event.edit().withComponents(NOT_BLACKLISTED).then();
+        } else {
+            return event.reply("You can't cancel this interaction.").withEphemeral(true).then();
+        }
     }
 
     @Data
