@@ -32,6 +32,7 @@ import reactor.core.publisher.Mono;
 
 import java.time.Duration;
 import java.time.Instant;
+import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.TimeoutException;
 
@@ -94,7 +95,7 @@ public class BlacklistCommand implements ICommand {
                 .map(ApplicationCommandInteractionOptionValue::asString).orElse(null);
 
         return user.flatMap(u -> {
-            if (userRepository.existsByDiscordAccountsContaining(u.getId().asString())) {
+            if (userRepository.existsByDiscordAccountsContaining(u.getId().asLong())) {
                 return event.reply("User is already blacklisted.");
             }
 
@@ -103,11 +104,12 @@ public class BlacklistCommand implements ICommand {
 
             return event.reply("Are you sure you want to blacklist this user? (discord: `%s`, minecraft: `%s`)".formatted(u.getTag(), username))
                     .withComponents(ActionRow.of(button, Util.CANCEL_BUTTON))
-                    .then(getConfirmListener(username, u, reason, time, event));
+                    .then(Util.getMinecraftUUID(username))
+                    .flatMap(uuid -> getConfirmListener(username, u.getTag(), new BlacklistedUser(u.getId().asLong(), uuid, reason), time, event));
         });
     }
 
-    private Mono<Void> getConfirmListener(String username, User user, String reason, long time, ChatInputInteractionEvent other) {
+    private Mono<Void> getConfirmListener(String username, String tag, BlacklistedUser bu, long time, ChatInputInteractionEvent other) {
         final Button button = Button.primary("blacklist_confirm_" + time, "Blacklist");
 
         return client.on(ButtonInteractionEvent.class, evt -> {
@@ -116,22 +118,20 @@ public class BlacklistCommand implements ICommand {
                     if (!evt.getInteraction().getUser().equals(other.getInteraction().getUser()))
                         return evt.reply("You can't confirm this blacklist.").withEphemeral(true);
 
-                    log.info("New globally blacklisted user: minecraft={}, discord={}, by={}", username, user.getTag(), evt.getInteraction().getUser().getTag());
+                    log.info("New globally blacklisted user: minecraft={}, discord={}, by={}", username, tag, evt.getInteraction().getUser().getTag());
+                    userRepository.save(bu);
+                    List<Server> servers = serverRepository.findAll();
 
                     return evt.edit().withComponents(BLACKLISTED)
-                            .then(Util.getMinecraftUUID(username))
-                            .map(uuid -> new BlacklistedUser(user.getId().asString(), uuid, reason))
-                            .flatMap(bu -> Mono.fromRunnable(() -> userRepository.save(bu))
-                                    .then(Mono.fromFuture(serverRepository.findAll()))
-                                    .flatMapMany(Flux::fromIterable)
-                                    .flatMap(server -> client.getGuildById(Snowflake.of(server.getDiscordId()))
-                                            .flatMap(Guild::getOwner)
-                                            .flatMap(User::getPrivateChannel)
-                                            .flatMap(c -> c.createMessage("The MCI admin team has blacklisted a new user (discord: `%s`, minecraft: `%s`)"
-                                                    .formatted(user.getTag(), username)).withComponents(ActionRow.of(button, Util.CANCEL_BUTTON)))
-                                            .flatMap(msg -> getBlacklistListener(bu, server, username, time, msg, evt))
-                                            .doOnError(t -> log.error("Could not send blacklist message to owner.", t))
-                                    ).then(evt.createFollowup("Blacklist message sent to all owners.").withEphemeral(true)))
+                            .thenMany(Flux.fromIterable(servers))
+                            .flatMap(server -> client.getGuildById(Snowflake.of(server.getDiscordId()))
+                                    .flatMap(Guild::getOwner)
+                                    .flatMap(User::getPrivateChannel)
+                                    .flatMap(c -> c.createMessage("The MCI admin team has blacklisted a new user (discord: `%s`, minecraft: `%s`)"
+                                            .formatted(tag, username)).withComponents(ActionRow.of(button, Util.CANCEL_BUTTON)))
+                                    .flatMap(msg -> getBlacklistListener(bu, server, username, time, msg, evt))
+                                    .doOnError(t -> log.error("Could not send blacklist message to owner.", t))
+                            ).then(evt.createFollowup("Blacklist message sent to all owners.").withEphemeral(true))
                             .then();
                 }).timeout(Duration.ofMinutes(5))
                 .onErrorResume(TimeoutException.class, t -> other.editReply().withComponents(Util.NOT_BLACKLISTED).then())
@@ -144,22 +144,19 @@ public class BlacklistCommand implements ICommand {
                     if (!evt.getCustomId().equals("blacklist_confirm_" + time)) return Mono.empty();
                     log.info("Server owner {} blacklisted {} on server {}", evt.getInteraction().getUser().getTag(), username, server.getMinecraftId());
 
+                    server.getBlacklistedUsers().add(user);
+                    serverRepository.save(server);
+
+                    MinecraftUser mu = new MinecraftUser(username, user.getReason());
+                    log.info("Sending {} to RabbitMQ.", mu);
+                    rabbitTemplate.convertAndSend(MCIBot.BAN_EXCHANGE, server.getMinecraftId().toString(), mu);
+
                     return evt.edit().withComponents(BLACKLISTED)
-                            .then(Mono.fromRunnable(() -> {
-                                server.getBlacklistedUsers().add(user);
-                                serverRepository.save(server);
-                            }))
                             .then(client.getGuildById(Snowflake.of(server.getDiscordId())))
                             .flatMap(g -> Flux.fromIterable(user.getDiscordAccounts())
                                     .map(Snowflake::of)
                                     .flatMap(s -> g.ban(s).withReason(user.getReason()))
                                     .then())
-                            .onErrorResume(t -> Mono.empty())
-                            .then(Mono.fromRunnable(() -> {
-                                MinecraftUser mcUser = new MinecraftUser(username, user.getReason());
-                                log.info("Sending {} to RabbitMQ.", mcUser);
-                                rabbitTemplate.convertAndSend("direct_logs", server.getMinecraftId().toString(), mcUser);
-                            }))
                             .then(evt.createFollowup("User has been banned.").withEphemeral(true))
                             .then();
                 }).timeout(Duration.ofDays(7))

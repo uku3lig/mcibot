@@ -19,14 +19,14 @@ public class BlacklistedUser implements Serializable {
     private long id;
 
     @ElementCollection(fetch = FetchType.EAGER)
-    private Set<String> discordAccounts;
+    private Set<Long> discordAccounts;
 
     @ElementCollection(fetch = FetchType.EAGER)
     private Set<UUID> minecraftAccounts;
 
     private String reason;
 
-    public BlacklistedUser(String discordId, UUID minecraftUuid, String reason) {
+    public BlacklistedUser(long discordId, UUID minecraftUuid, String reason) {
         this.discordAccounts = Collections.singleton(discordId);
         this.minecraftAccounts = Collections.singleton(minecraftUuid);
         this.reason = reason;
