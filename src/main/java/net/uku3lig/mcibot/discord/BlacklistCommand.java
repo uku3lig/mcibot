@@ -79,12 +79,12 @@ public class BlacklistCommand implements ICommand {
     public Mono<Void> onInteraction(ChatInputInteractionEvent event) {
         Optional<Long> guildId = event.getInteraction().getGuildId().map(Snowflake::asLong);
         if (guildId.isEmpty() || guildId.get() != MCIBot.getManager().getConfig().getMainDiscordId()) {
-            return event.reply("This command can only be used in the MCI server.");
+            return event.reply("This command can only be used in the MCI server.").withEphemeral(true);
         }
 
         // check if the user has the required permissions
         if (!event.getInteraction().getMember().map(m -> m.getBasePermissions().block()).map(p -> p.contains(Permission.MANAGE_GUILD)).orElse(false)) {
-            return event.reply("You need to be an admin to use this command.");
+            return event.reply("You need to be an admin to use this command.").withEphemeral(true);
         }
 
         String username = event.getOption("username").flatMap(ApplicationCommandInteractionOption::getValue)
@@ -95,17 +95,19 @@ public class BlacklistCommand implements ICommand {
                 .map(ApplicationCommandInteractionOptionValue::asString).orElse(null);
 
         return user.flatMap(u -> {
-            if (userRepository.existsByDiscordAccountsContaining(u.getId().asLong())) {
-                return event.reply("User is already blacklisted.");
+            Optional<BlacklistedUser> opt = userRepository.findByDiscordAccountsContaining(u.getId().asLong());
+            if (opt.isPresent() && opt.get().isGlobal()) {
+                return event.reply("User is already blacklisted.").withEphemeral(true);
             }
 
             long time = Instant.now().getEpochSecond();
             final Button button = Button.primary("confirm_" + time, "Confirm");
 
             return event.reply("Are you sure you want to blacklist this user? (discord: `%s`, minecraft: `%s`)".formatted(u.getTag(), username))
+                    .withEphemeral(true)
                     .withComponents(ActionRow.of(button, Util.CANCEL_BUTTON))
                     .then(Util.getMinecraftUUID(username))
-                    .flatMap(uuid -> getConfirmListener(username, u.getTag(), new BlacklistedUser(u.getId().asLong(), uuid, reason), time, event));
+                    .flatMap(uuid -> getConfirmListener(username, u.getTag(), opt.orElse(new BlacklistedUser(u.getId().asLong(), uuid, reason)), time, event));
         });
     }
 
@@ -119,10 +121,12 @@ public class BlacklistCommand implements ICommand {
                         return evt.reply("You can't confirm this blacklist.").withEphemeral(true);
 
                     log.info("New globally blacklisted user: minecraft={}, discord={}, by={}", username, tag, evt.getInteraction().getUser().getTag());
+                    bu.setGlobal(true);
                     userRepository.save(bu);
-                    List<Server> servers = serverRepository.findAll();
+                    List<Server> servers = serverRepository.findAll().stream().filter(s -> !s.getBlacklistedUsers().contains(bu)).toList();
 
                     return evt.edit().withComponents(BLACKLISTED)
+                            .then(evt.createFollowup("Blacklist message sent to all owners.").withEphemeral(true))
                             .thenMany(Flux.fromIterable(servers))
                             .flatMap(server -> client.getGuildById(Snowflake.of(server.getDiscordId()))
                                     .flatMap(Guild::getOwner)
@@ -131,8 +135,7 @@ public class BlacklistCommand implements ICommand {
                                             .formatted(tag, username)).withComponents(ActionRow.of(button, Util.CANCEL_BUTTON)))
                                     .flatMap(msg -> getBlacklistListener(bu, server, username, time, msg, evt))
                                     .doOnError(t -> log.error("Could not send blacklist message to owner.", t))
-                            ).then(evt.createFollowup("Blacklist message sent to all owners.").withEphemeral(true))
-                            .then();
+                            ).then();
                 }).timeout(Duration.ofMinutes(5))
                 .onErrorResume(TimeoutException.class, t -> other.editReply().withComponents(Util.NOT_BLACKLISTED).then())
                 .next();

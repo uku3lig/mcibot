@@ -18,6 +18,8 @@ public class BlacklistedUser implements Serializable {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private long id;
 
+    private boolean global;
+
     @ElementCollection(fetch = FetchType.EAGER)
     private Set<Long> discordAccounts;
 
@@ -30,17 +32,18 @@ public class BlacklistedUser implements Serializable {
         this.discordAccounts = Collections.singleton(discordId);
         this.minecraftAccounts = Collections.singleton(minecraftUuid);
         this.reason = reason;
+        this.global = true;
     }
 
     @Override
     public boolean equals(Object o) {
         if (this == o) return true;
         if (!(o instanceof BlacklistedUser that)) return false;
-        return id == that.id && discordAccounts.equals(that.discordAccounts) && minecraftAccounts.equals(that.minecraftAccounts);
+        return id == that.id;
     }
 
     @Override
     public int hashCode() {
-        return Objects.hash(id, discordAccounts, minecraftAccounts);
+        return Objects.hash(id);
     }
 }
