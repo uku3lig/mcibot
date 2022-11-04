@@ -67,6 +67,11 @@ public class MCIBot {
     }
 
     @Bean
+    public Exchange unbanExchange() {
+        return new DirectExchange(UNBAN_EXCHANGE, true, false);
+    }
+
+    @Bean
     public MessageConverter messageConverter() {
         return new Jackson2JsonMessageConverter();
     }

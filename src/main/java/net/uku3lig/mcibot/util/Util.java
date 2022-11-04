@@ -78,6 +78,21 @@ public class Util {
                 .map(Util::convertUUID);
     }
 
+    public static Mono<String> getMinecraftUsername(UUID uuid) {
+        return client.get()
+                .uri("https://api.mojang.com/user/profile/{uuid}", uuid.toString())
+                .retrieve()
+                .onStatus(HttpStatus.NO_CONTENT::equals, response -> Mono.empty())
+                .onStatus(code -> !HttpStatus.OK.equals(code), response -> {
+                    log.error("Error while getting minecraft username: {}", response.statusCode());
+                    return response.bodyToMono(String.class)
+                            .flatMap(s -> Mono.fromRunnable(() -> log.error("Response: {}", s)))
+                            .then(Mono.error(new IllegalArgumentException("An unknown error happened.")));
+                })
+                .bodyToMono(Profile.class)
+                .map(Profile::getName);
+    }
+
     public static Mono<Void> onCancel(ButtonInteractionEvent event, InteractionCreateEvent other) {
         if (event.getInteraction().getUser().equals(other.getInteraction().getUser())) {
             return event.edit().withComponents(CANCELLED).then();
@@ -89,6 +104,7 @@ public class Util {
     @Data
     private static class Profile {
         private String id;
+        private String name;
     }
 
     private Util() {
