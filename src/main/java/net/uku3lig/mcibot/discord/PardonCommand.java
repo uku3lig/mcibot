@@ -98,7 +98,7 @@ public class PardonCommand implements ICommand {
         long time = Instant.now().getEpochSecond();
         final Button button = Button.primary("confirm_" + time, "Confirm");
 
-        return event.deferReply().withEphemeral(true)
+        return event.deferReply()
                 .then(get)
                 .filter(t -> t.getT1().isGlobal()) // if not globally blacklisted, ignore
                 .zipWhen(t -> Flux.fromIterable(t.getT1().getMinecraftAccounts()).flatMap(Util::getMinecraftUsername).collectList(), Util::t2to3)

@@ -111,7 +111,6 @@ public class BlacklistCommand implements ICommand {
                     final Button button = Button.primary("confirm_" + time, "Confirm");
 
                     return event.reply("Are you sure you want to blacklist this user? (discord: `%s`, minecraft: `%s`)".formatted(u.getTag(), username))
-                            .withEphemeral(true)
                             .withComponents(ActionRow.of(button, Util.cancelButton(event.getInteraction().getChannelId(), time)))
                             .then(getConfirmListener(username, u.getTag(), opt.orElse(new BlacklistedUser(u.getId().asLong(), uuid, reason)), time, event));
                 });
