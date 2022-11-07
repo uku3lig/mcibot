@@ -24,11 +24,11 @@ import net.uku3lig.mcibot.jpa.UserRepository;
 import net.uku3lig.mcibot.model.BlacklistedUser;
 import net.uku3lig.mcibot.model.Server;
 import net.uku3lig.mcibot.util.Util;
-import org.javatuples.Pair;
 import org.springframework.amqp.rabbit.core.RabbitTemplate;
 import org.springframework.stereotype.Service;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
+import reactor.util.function.Tuple2;
 
 import java.time.Duration;
 import java.time.Instant;
@@ -84,15 +84,13 @@ public class PardonCommand implements ICommand {
         Optional<Mono<User>> discord = event.getOption("discord").flatMap(ApplicationCommandInteractionOption::getValue)
                 .map(ApplicationCommandInteractionOptionValue::asUser);
 
-        Mono<Pair<BlacklistedUser, String>> get;
+        Mono<Tuple2<BlacklistedUser, String>> get;
         if (minecraft.isPresent()) {
             get = Util.getMinecraftUUID(minecraft.get()).flatMap(uuid -> Mono.justOrEmpty(userRepository.findByMinecraftAccountsContaining(uuid)))
-                    .map(user -> Pair.with(user, minecraft.get()));
+                    .zipWith(Mono.just(minecraft.get()));
         } else if (discord.isPresent()) {
-            get = discord.get().flatMap(user ->
-                    Mono.justOrEmpty(userRepository.findByDiscordAccountsContaining(user.getId().asLong()))
-                            .map(u -> Pair.with(u, user.getTag()))
-            );
+            get = discord.get().flatMap(user -> Mono.justOrEmpty(userRepository.findByDiscordAccountsContaining(user.getId().asLong()))
+                    .zipWith(Mono.just(user.getTag())));
         } else {
             return event.reply("You need to specify a username or a Discord user.").withEphemeral(true);
         }
@@ -102,12 +100,13 @@ public class PardonCommand implements ICommand {
 
         return event.deferReply().withEphemeral(true)
                 .then(get)
-                .filter(p -> p.getValue0().isGlobal()) // if not globally blacklisted, ignore
-                .flatMap(p -> Flux.fromIterable(p.getValue0().getMinecraftAccounts()).flatMap(Util::getMinecraftUsername).collectList().map(p::add))
+                .filter(t -> t.getT1().isGlobal()) // if not globally blacklisted, ignore
+                .zipWhen(t -> Flux.fromIterable(t.getT1().getMinecraftAccounts()).flatMap(Util::getMinecraftUsername).collectList(), Util::t2to3)
+                .flatMap(m -> m)
                 .switchIfEmpty(event.createFollowup("User not found.").then(Mono.empty()))
                 .flatMap(t -> event.createFollowup("Are you sure you want to pardon this user?")
                         .withComponents(ActionRow.of(button, Util.cancelButton(time)))
-                        .then(getConfirmListener(t.getValue0(), t.getValue1(), t.getValue2(), time, event)));
+                        .then(getConfirmListener(t.getT1(), t.getT2(), t.getT3(), time, event)));
     }
 
     private Mono<Void> getConfirmListener(BlacklistedUser user, String name, List<String> minecraft, long time, ChatInputInteractionEvent other) {

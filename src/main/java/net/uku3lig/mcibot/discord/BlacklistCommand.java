@@ -25,7 +25,6 @@ import net.uku3lig.mcibot.jpa.UserRepository;
 import net.uku3lig.mcibot.model.BlacklistedUser;
 import net.uku3lig.mcibot.model.Server;
 import net.uku3lig.mcibot.util.Util;
-import org.javatuples.Pair;
 import org.springframework.amqp.rabbit.core.RabbitTemplate;
 import org.springframework.stereotype.Service;
 import reactor.core.publisher.Flux;
@@ -96,11 +95,11 @@ public class BlacklistCommand implements ICommand {
         String reason = event.getOption("reason").flatMap(ApplicationCommandInteractionOption::getValue)
                 .map(ApplicationCommandInteractionOptionValue::asString).orElse(null);
 
-        return user.flatMap(u -> Util.getMinecraftUUID(username).map(uuid -> Pair.with(u, uuid)))
+        return user.zipWith(Util.getMinecraftUUID(username))
                 .switchIfEmpty(event.reply("Invalid minecraft username.").withEphemeral(true).then(Mono.empty()))
                 .flatMap(p -> {
-                    final User u = p.getValue0();
-                    final UUID uuid = p.getValue1();
+                    final User u = p.getT1();
+                    final UUID uuid = p.getT2();
 
                     Optional<BlacklistedUser> opt = userRepository.findByDiscordAccountsContaining(u.getId().asLong())
                             .or(() -> userRepository.findByMinecraftAccountsContaining(uuid));
