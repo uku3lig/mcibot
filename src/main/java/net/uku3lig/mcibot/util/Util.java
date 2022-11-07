@@ -1,10 +1,10 @@
 package net.uku3lig.mcibot.util;
 
-import discord4j.common.util.Snowflake;
 import discord4j.core.event.domain.interaction.ButtonInteractionEvent;
 import discord4j.core.event.domain.interaction.InteractionCreateEvent;
 import discord4j.core.object.component.ActionRow;
 import discord4j.core.object.component.Button;
+import discord4j.core.object.entity.Message;
 import lombok.Data;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
@@ -14,13 +14,15 @@ import reactor.core.publisher.Mono;
 import reactor.util.function.Tuple2;
 import reactor.util.function.Tuple3;
 
-import java.util.Arrays;
 import java.util.Map;
-import java.util.Objects;
 import java.util.UUID;
 
 @Slf4j
 public class Util {
+    public static final Button CONFIRM_BUTTON = Button.primary("confirm", "Confirm");
+    public static final Button CANCEL_BUTTON = Button.secondary("cancel", "Cancel");
+
+    public static final ActionRow CHOICE = ActionRow.of(CONFIRM_BUTTON, CANCEL_BUTTON);
     public static final ActionRow CANCELLED = ActionRow.of(Button.secondary("cancelled", "Cancelled").disabled());
 
     private static final WebClient client = WebClient.create();
@@ -36,32 +38,12 @@ public class Util {
                 "$1-$2-$3-$4-$5"));
     }
 
-    public static Button cancelButton(Object... args) {
-        if (args.length == 0) return Button.danger("cancel", "Cancel");
-
-        String[] argsStr = Arrays.stream(args)
-                .map(o -> {
-                    if (o instanceof Snowflake s) return s.asString();
-                    else return Objects.toString(o);
-                })
-                .toArray(String[]::new);
-        return Button.secondary("cancel_" + String.join("_", argsStr), "Cancel");
+    public static boolean isButton(ButtonInteractionEvent event, String id, Message message) {
+        return event.getCustomId().equals(id) && event.getMessageId().equals(message.getId());
     }
 
-    public static boolean isButton(ButtonInteractionEvent event, String id, Object... args) {
-        if (args.length == 0) return event.getCustomId().equals(id);
-
-        String[] argsStr = Arrays.stream(args)
-                .map(o -> {
-                    if (o instanceof Snowflake s) return s.asString();
-                    else return Objects.toString(o);
-                })
-                .toArray(String[]::new);
-        return event.getCustomId().equals(id + "_" + String.join("_", argsStr));
-    }
-
-    public static boolean isCancelButton(ButtonInteractionEvent event, Object... args) {
-        return isButton(event, "cancel", args);
+    public static boolean isCancelButton(ButtonInteractionEvent event, Message message) {
+        return isButton(event, "cancel", message);
     }
 
     public static Mono<UUID> getMinecraftUUID(String username) {
