@@ -22,7 +22,7 @@ public class Util {
     public static final Button CONFIRM_BUTTON = Button.primary("confirm", "Confirm");
     public static final Button CANCEL_BUTTON = Button.secondary("cancel", "Cancel");
 
-    public static final ActionRow CHOICE = ActionRow.of(CONFIRM_BUTTON, CANCEL_BUTTON);
+    public static final ActionRow CHOICE_ROW = ActionRow.of(CONFIRM_BUTTON, CANCEL_BUTTON);
     public static final ActionRow CANCELLED = ActionRow.of(Button.secondary("cancelled", "Cancelled").disabled());
 
     private static final WebClient client = WebClient.create();

@@ -108,7 +108,7 @@ public class BlacklistCommand implements ICommand {
                     }
 
                     return event.reply("Are you sure you want to blacklist this user? (discord: `%s`, minecraft: `%s`)".formatted(u.getTag(), username))
-                            .withComponents(Util.CHOICE)
+                            .withComponents(Util.CHOICE_ROW)
                             .then(event.getReply())
                             .flatMap(m -> getConfirmListener(username, u.getTag(), opt.orElse(new BlacklistedUser(u.getId().asLong(), uuid, reason)), m, event));
                 });

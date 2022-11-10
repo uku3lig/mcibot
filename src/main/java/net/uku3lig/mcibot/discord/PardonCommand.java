@@ -102,7 +102,7 @@ public class PardonCommand implements ICommand {
                 .flatMap(m -> m)
                 .switchIfEmpty(event.createFollowup("User not found.").then(Mono.empty()))
                 .flatMap(t -> event.createFollowup("Are you sure you want to pardon this user?")
-                        .withComponents(Util.CHOICE)
+                        .withComponents(Util.CHOICE_ROW)
                         .flatMap(m -> getConfirmListener(t.getT1(), t.getT2(), t.getT3(), m, event)));
     }
 
