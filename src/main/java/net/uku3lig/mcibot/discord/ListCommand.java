@@ -21,10 +21,10 @@ import org.springframework.stereotype.Service;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
-import java.util.List;
 import java.util.Optional;
 
-import static discord4j.core.object.command.ApplicationCommandOption.Type.*;
+import static discord4j.core.object.command.ApplicationCommandOption.Type.INTEGER;
+import static discord4j.core.object.command.ApplicationCommandOption.Type.SUB_COMMAND;
 
 @Service
 @AllArgsConstructor
@@ -95,25 +95,29 @@ public class ListCommand implements ICommand {
 
                 if (bu.isEmpty()) yield event.reply("Invalid ID.").withEphemeral(true);
 
-                Mono<List<String>> discord = Flux.fromIterable(bu.get().getDiscordAccounts())
+                Mono<String> discord = Flux.fromIterable(bu.get().getDiscordAccounts())
                         .map(Snowflake::of)
                         .flatMap(client::getUserById)
                         .map(User::getTag)
                         .map("`%s`"::formatted)
-                        .collectList();
+                        .collectList()
+                        .map(l -> l.isEmpty() ? "None" : String.join("\n", l));
 
-                Mono<List<String>> minecraft = Flux.fromIterable(bu.get().getMinecraftAccounts())
+                Mono<String> minecraft = Flux.fromIterable(bu.get().getMinecraftAccounts())
                         .flatMap(Util::getMinecraftUsername)
                         .map("`%s`"::formatted)
-                        .collectList();
+                        .collectList()
+                        .map(l -> l.isEmpty() ? "None" : String.join("\n", l));
+
+                String reason = Optional.ofNullable(bu.get().getReason()).orElse("None");
 
                 yield event.deferReply()
                         .then(Mono.zip(Mono.just(bu.get().getId()), discord, minecraft))
                         .map(t -> EmbedCreateSpec.builder()
                                 .title("Blacklisted user (ID: %d)".formatted(t.getT1()))
-                                .addField("Discord Accounts", String.join("\n", t.getT2()), false)
-                                .addField("Minecraft Accounts", String.join("\n", t.getT3()), false)
-                                .addField("Reason", bu.get().getReason(), false)
+                                .addField("Discord Accounts", t.getT2(), false)
+                                .addField("Minecraft Accounts", t.getT3(), false)
+                                .addField("Reason", reason, false)
                                 .build())
                         .flatMap(e -> event.createFollowup().withEmbeds(e));
             }
