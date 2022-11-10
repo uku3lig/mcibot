@@ -113,6 +113,7 @@ public class ListCommand implements ICommand {
                                 .title("Blacklisted user (ID: %d)".formatted(t.getT1()))
                                 .addField("Discord Accounts", String.join("\n", t.getT2()), false)
                                 .addField("Minecraft Accounts", String.join("\n", t.getT3()), false)
+                                .addField("Reason", bu.get().getReason(), false)
                                 .build())
                         .flatMap(e -> event.createFollowup().withEmbeds(e));
             }
