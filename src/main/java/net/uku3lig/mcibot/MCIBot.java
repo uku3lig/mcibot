@@ -25,6 +25,7 @@ public class MCIBot {
 
     public static final String BAN_EXCHANGE = "mci_ban";
     public static final String UNBAN_EXCHANGE = "mci_unban";
+    public static final String EDIT_EXCHANGE = "mci_edit";
 
     public static void main(String[] args) {
         SpringApplication.run(MCIBot.class, args);
@@ -69,6 +70,11 @@ public class MCIBot {
     @Bean
     public Exchange unbanExchange() {
         return new DirectExchange(UNBAN_EXCHANGE, true, false);
+    }
+
+    @Bean
+    public Exchange editExchange() {
+        return new DirectExchange(EDIT_EXCHANGE, true, false);
     }
 
     @Bean
