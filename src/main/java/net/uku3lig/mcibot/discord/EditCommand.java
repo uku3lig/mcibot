@@ -2,10 +2,12 @@ package net.uku3lig.mcibot.discord;
 
 import discord4j.common.util.Snowflake;
 import discord4j.core.GatewayDiscordClient;
+import discord4j.core.event.domain.interaction.ButtonInteractionEvent;
 import discord4j.core.event.domain.interaction.ChatInputInteractionEvent;
 import discord4j.core.object.command.ApplicationCommandInteractionOption;
 import discord4j.core.object.command.ApplicationCommandInteractionOptionValue;
 import discord4j.core.object.entity.Guild;
+import discord4j.core.object.entity.Message;
 import discord4j.core.object.entity.User;
 import discord4j.discordjson.json.ApplicationCommandOptionData;
 import discord4j.discordjson.json.ApplicationCommandRequest;
@@ -23,8 +25,10 @@ import org.springframework.stereotype.Service;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
+import java.time.Duration;
 import java.util.Optional;
 import java.util.UUID;
+import java.util.concurrent.TimeoutException;
 
 import static discord4j.core.object.command.ApplicationCommandOption.Type.*;
 
@@ -87,7 +91,8 @@ public class EditCommand implements ICommand {
                 .flatMap(userRepository::findById)
                 .orElse(null);
 
-        if (user == null) return event.reply("User not found in database. Make sure you used the ID found using /list.").withEphemeral(true);
+        if (user == null)
+            return event.reply("User not found in database. Make sure you used the ID found using /list.").withEphemeral(true);
 
         final String operation = event.getOption("operation")
                 .flatMap(ApplicationCommandInteractionOption::getValue)
@@ -106,52 +111,78 @@ public class EditCommand implements ICommand {
                 .map(ApplicationCommandInteractionOptionValue::asUser).orElse(null);
 
         if (minecraft != null) {
-            return minecraft.flatMap(uuid -> editMinecraftUser(user, operation, uuid)
-                            .then(event.reply("Successfully edited user with UUID `%s`.".formatted(uuid))))
-                    .then();
+            return minecraft.flatMap(uuid -> event.createFollowup("Are you sure you want to edit this user?")
+                    .withComponents(Util.CHOICE_ROW)
+                    .flatMap(m -> getMinecraftConfirmListener(user, operation, uuid, m, event)));
         } else if (discord != null) {
-            return discord.flatMap(u -> editDiscordUser(user, operation, u)
-                            .then(event.reply("Successfully edited user with discord account `%s`.".formatted(u.getTag()))))
-                    .then();
+            return discord.flatMap(u -> event.createFollowup("Are you sure you want to edit this user?")
+                    .withComponents(Util.CHOICE_ROW)
+                    .flatMap(m -> getDiscordConfirmListener(user, operation, u, m, event)));
         } else {
             return event.reply("You need to specify either a Minecraft UUID or a Discord ID.").withEphemeral(true);
         }
     }
 
-    private record EditMessage(String operation, String value) {}
+    private Mono<Void> getMinecraftConfirmListener(BlacklistedUser user, String operation, UUID uuid, Message message, ChatInputInteractionEvent other) {
+        return client.on(ButtonInteractionEvent.class, evt -> {
+                    if (Util.isCancelButton(evt, message)) return Util.onCancel(evt, other);
+                    if (!Util.isButton(evt, "confirm", message)) return Mono.empty();
+                    if (!evt.getInteraction().getUser().equals(other.getInteraction().getUser()))
+                        return evt.reply("You can't confirm this pardon.").withEphemeral(true);
 
-    private Mono<Void> editMinecraftUser(BlacklistedUser user, String operation, UUID uuid) {
-        final EditMessage message = new EditMessage(operation, uuid.toString());
+                    final EditMessage editMessage = new EditMessage(operation, uuid.toString());
 
-        if (operation.equals("add")) {
-            user.getMinecraftAccounts().add(uuid);
-        } else {
-            user.getMinecraftAccounts().remove(uuid);
-        }
+                    if (operation.equals("add")) {
+                        user.getMinecraftAccounts().add(uuid);
+                    } else {
+                        user.getMinecraftAccounts().remove(uuid);
+                    }
 
-        return Flux.fromIterable(serverRepository.findAll())
-                .filter(s -> s.getBlacklistedUsers().contains(user))
-                .map(Server::getMinecraftId)
-                .flatMap(su -> Mono.fromRunnable(() -> rabbitTemplate.convertAndSend(MCIBot.EDIT_EXCHANGE, su.toString(), message)))
-                .then(Mono.fromRunnable(() -> userRepository.save(user)));
+                    return evt.deferReply().withEphemeral(true)
+                            .thenMany(Flux.fromIterable(serverRepository.findAll()))
+                            .filter(s -> s.getBlacklistedUsers().contains(user))
+                            .map(Server::getMinecraftId)
+                            .flatMap(su -> Mono.fromRunnable(() -> rabbitTemplate.convertAndSend(MCIBot.EDIT_EXCHANGE, su.toString(), editMessage)))
+                            .then(Mono.fromRunnable(() -> userRepository.save(user)))
+                            .then(evt.createFollowup("Successfully edited user with UUID `%s`.".formatted(uuid)))
+                            .then();
+                }).timeout(Duration.ofMinutes(5))
+                .onErrorResume(TimeoutException.class, t -> other.editReply().withComponents(Util.CANCELLED).then())
+                .next();
     }
 
-    private Mono<Void> editDiscordUser(BlacklistedUser user, String operation, User discordUser) {
-        Flux<Guild> guilds = Flux.fromIterable(serverRepository.findAll())
-                .filter(s -> s.getBlacklistedUsers().contains(user))
-                .map(Server::getDiscordId)
-                .map(Snowflake::of)
-                .flatMap(client::getGuildById);
+    private Mono<Void> getDiscordConfirmListener(BlacklistedUser user, String operation, User discordUser, Message message, ChatInputInteractionEvent other) {
+        return client.on(ButtonInteractionEvent.class, evt -> {
+                    if (Util.isCancelButton(evt, message)) return Util.onCancel(evt, other);
+                    if (!Util.isButton(evt, "confirm", message)) return Mono.empty();
+                    if (!evt.getInteraction().getUser().equals(other.getInteraction().getUser()))
+                        return evt.reply("You can't confirm this pardon.").withEphemeral(true);
 
-        Mono<Void> mono;
-        if (operation.equals("add")) {
-            user.getDiscordAccounts().add(discordUser.getId().asLong());
-            mono = guilds.flatMap(g -> g.ban(discordUser.getId())).then();
-        } else { // remove
-            user.getDiscordAccounts().remove(discordUser.getId().asLong());
-            mono = guilds.flatMap(g -> g.unban(discordUser.getId())).then();
-        }
+                    Flux<Guild> guilds = Flux.fromIterable(serverRepository.findAll())
+                            .filter(s -> s.getBlacklistedUsers().contains(user))
+                            .map(Server::getDiscordId)
+                            .map(Snowflake::of)
+                            .flatMap(client::getGuildById);
 
-        return mono.then(Mono.fromRunnable(() -> userRepository.save(user)));
+                    Mono<Void> mono;
+                    if (operation.equals("add")) {
+                        user.getDiscordAccounts().add(discordUser.getId().asLong());
+                        mono = guilds.flatMap(g -> g.ban(discordUser.getId())).then();
+                    } else { // remove
+                        user.getDiscordAccounts().remove(discordUser.getId().asLong());
+                        mono = guilds.flatMap(g -> g.unban(discordUser.getId())).then();
+                    }
+
+                    return evt.deferReply().withEphemeral(true)
+                            .then(mono)
+                            .then(Mono.fromRunnable(() -> userRepository.save(user)))
+                            .then(evt.createFollowup("Successfully edited user with discord account `%s`.".formatted(discordUser.getTag())))
+                            .then();
+                }).timeout(Duration.ofMinutes(5))
+                .onErrorResume(TimeoutException.class, t -> other.editReply().withComponents(Util.CANCELLED).then())
+                .next();
+    }
+
+    private record EditMessage(String operation, String value) {
     }
 }
