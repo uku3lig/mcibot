@@ -5,6 +5,7 @@ import discord4j.core.event.domain.interaction.InteractionCreateEvent;
 import discord4j.core.object.component.ActionRow;
 import discord4j.core.object.component.Button;
 import discord4j.core.object.entity.Message;
+import discord4j.discordjson.json.ApplicationCommandOptionChoiceData;
 import lombok.Data;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
@@ -14,8 +15,7 @@ import reactor.core.publisher.Mono;
 import reactor.util.function.Tuple2;
 import reactor.util.function.Tuple3;
 
-import java.util.Map;
-import java.util.UUID;
+import java.util.*;
 
 @Slf4j
 public class Util {
@@ -47,19 +47,20 @@ public class Util {
     }
 
     public static Mono<UUID> getMinecraftUUID(String username) {
-        return client.get()
-                .uri("https://api.mojang.com/users/profiles/minecraft/{username}", username)
-                .retrieve()
-                .onStatus(HttpStatus.NO_CONTENT::equals, response -> Mono.empty())
-                .onStatus(code -> !HttpStatus.OK.equals(code), response -> {
-                    log.error("Error while getting minecraft uuid: {}", response.statusCode());
-                    return response.bodyToMono(String.class)
-                            .flatMap(s -> Mono.fromRunnable(() -> log.error("Response: {}", s)))
-                            .then(Mono.error(new IllegalArgumentException("An unknown error happened.")));
-                })
-                .bodyToMono(Profile.class)
-                .map(Profile::getId)
-                .map(Util::convertUUID);
+        return getUUID(username).map(uuid -> getMinecraftUsername(uuid).map(s -> uuid)) // the lambda checks if the profile exists
+                .orElseGet(() -> client.get()
+                        .uri("https://api.mojang.com/users/profiles/minecraft/{username}", username)
+                        .retrieve()
+                        .onStatus(HttpStatus.NO_CONTENT::equals, response -> Mono.empty())
+                        .onStatus(code -> !HttpStatus.OK.equals(code), response -> {
+                            log.error("Error while getting minecraft uuid: {}", response.statusCode());
+                            return response.bodyToMono(String.class)
+                                    .flatMap(s -> Mono.fromRunnable(() -> log.error("Response: {}", s)))
+                                    .then(Mono.error(new IllegalArgumentException("An unknown error happened.")));
+                        })
+                        .bodyToMono(Profile.class)
+                        .map(Profile::getId)
+                        .map(Util::convertUUID));
     }
 
     public static Mono<String> getMinecraftUsername(UUID uuid) {
@@ -87,6 +88,28 @@ public class Util {
 
     public static <T1, T2, T3> Mono<Tuple3<T1, T2, T3>> t2to3(Tuple2<T1, T2> t, T3 t3) {
         return Mono.zip(Mono.just(t.getT1()), Mono.just(t.getT2()), Mono.just(t3));
+    }
+
+    public static ApplicationCommandOptionChoiceData choice(String value) {
+        return ApplicationCommandOptionChoiceData.builder().name(value).value(value).build();
+    }
+
+    public static List<ApplicationCommandOptionChoiceData> choices(String... values) {
+        return Arrays.stream(values).map(Util::choice).toList();
+    }
+
+    public static Optional<UUID> getUUID(String value) {
+        try {
+            return Optional.of(UUID.fromString(value));
+        } catch (IllegalArgumentException e) {
+            // ignore
+        }
+
+        try {
+            return Optional.of(convertUUID(value));
+        } catch (IllegalArgumentException e) {
+            return Optional.empty();
+        }
     }
 
     @Data
