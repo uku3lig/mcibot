@@ -70,7 +70,7 @@ public class ListCommand implements ICommand {
 
         ApplicationCommandInteractionOption subcommand = event.getOptions().get(0);
         return (switch (subcommand.getName()) {
-            case "all" -> event.deferReply().withEphemeral(true)
+            case "all" -> event.deferReply()
                     .thenMany(Flux.fromIterable(userRepository.findAll()))
                     .flatMap(u -> {
                         Mono<String> tag = client.getUserById(Snowflake.of(u.getDiscordAccounts().get(0))).map(User::getTag);
@@ -85,7 +85,7 @@ public class ListCommand implements ICommand {
                             .footer("Do /list info <id> to show info about a specific user", null)
                             .build()
                     )
-                    .flatMap(e -> event.createFollowup().withEmbeds(e).withEphemeral(true));
+                    .flatMap(e -> event.createFollowup().withEmbeds(e));
 
             case "info" -> {
                 Optional<BlacklistedUser> bu = subcommand.getOption("id")
