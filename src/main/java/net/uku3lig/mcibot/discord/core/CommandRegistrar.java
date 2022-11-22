@@ -8,6 +8,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.boot.ApplicationArguments;
 import org.springframework.boot.ApplicationRunner;
 import org.springframework.stereotype.Component;
+import reactor.core.publisher.Mono;
 
 import java.util.List;
 import java.util.Objects;
@@ -30,8 +31,9 @@ public class CommandRegistrar implements ApplicationRunner {
 
         //Register the commands
         client.getGuilds()
-                .flatMap(guild -> applicationService.bulkOverwriteGuildApplicationCommand(applicationId, guild.id().asLong(), requests))
-                .doOnNext(response -> log.info("Registered commands for guild {}", response.guildId()))
+                .flatMap(guild -> applicationService.bulkOverwriteGuildApplicationCommand(applicationId, guild.id().asLong(), requests)
+                        .then(Mono.just(guild.id().asLong())))
+                .doOnNext(id -> log.info("Registered commands for guild {}", id))
                 .subscribe();
     }
 }
