@@ -15,6 +15,7 @@ import discord4j.discordjson.json.ApplicationCommandOptionData;
 import discord4j.discordjson.json.ApplicationCommandRequest;
 import discord4j.rest.util.Permission;
 import lombok.AllArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import net.uku3lig.mcibot.MCIBot;
 import net.uku3lig.mcibot.discord.core.ICommand;
 import net.uku3lig.mcibot.jpa.ServerRepository;
@@ -36,6 +37,7 @@ import static discord4j.core.object.command.ApplicationCommandOption.Type.*;
 
 @Service
 @AllArgsConstructor
+@Slf4j
 public class EditCommand implements ICommand {
     private static final ActionRow EDITED = ActionRow.of(Button.secondary("edited", "Edited").disabled());
 
@@ -148,6 +150,7 @@ public class EditCommand implements ICommand {
                     if (!evt.getInteraction().getUser().equals(other.getInteraction().getUser()))
                         return evt.reply("You can't confirm this pardon.").withEphemeral(true);
 
+                    log.info("{} edited user {}: {} {}", other.getInteraction().getUser().getTag(), user.getId(), operation, uuid);
                     final EditMessage editMessage = new EditMessage(operation, uuid.toString());
 
                     if (operation.equals("add")) {
@@ -185,6 +188,7 @@ public class EditCommand implements ICommand {
                     if (!evt.getInteraction().getUser().equals(other.getInteraction().getUser()))
                         return evt.reply("You can't confirm this pardon.").withEphemeral(true);
 
+                    log.info("{} edited user {}: {} {}", other.getInteraction().getUser().getTag(), user.getId(), operation, discordUser.getTag());
                     Flux<Guild> guilds = Flux.fromIterable(serverRepository.findAll())
                             .filter(s -> s.getBlacklistedUsers().contains(user))
                             .map(Server::getDiscordId)
