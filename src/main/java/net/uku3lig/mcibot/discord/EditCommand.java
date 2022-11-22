@@ -6,6 +6,8 @@ import discord4j.core.event.domain.interaction.ButtonInteractionEvent;
 import discord4j.core.event.domain.interaction.ChatInputInteractionEvent;
 import discord4j.core.object.command.ApplicationCommandInteractionOption;
 import discord4j.core.object.command.ApplicationCommandInteractionOptionValue;
+import discord4j.core.object.component.ActionRow;
+import discord4j.core.object.component.Button;
 import discord4j.core.object.entity.Guild;
 import discord4j.core.object.entity.Message;
 import discord4j.core.object.entity.User;
@@ -35,6 +37,8 @@ import static discord4j.core.object.command.ApplicationCommandOption.Type.*;
 @Service
 @AllArgsConstructor
 public class EditCommand implements ICommand {
+    private static final ActionRow EDITED = ActionRow.of(Button.secondary("edited", "Edited").disabled());
+
     private final UserRepository userRepository;
     private final ServerRepository serverRepository;
     private final GatewayDiscordClient client;
@@ -111,13 +115,27 @@ public class EditCommand implements ICommand {
                 .map(ApplicationCommandInteractionOptionValue::asUser).orElse(null);
 
         if (minecraft != null) {
-            return minecraft.flatMap(uuid -> event.createFollowup("Are you sure you want to edit this user?")
-                    .withComponents(Util.CHOICE_ROW)
-                    .flatMap(m -> getMinecraftConfirmListener(user, operation, uuid, m, event)));
+            return event.deferReply().then(minecraft)
+                    .flatMap(uuid -> {
+                        String message = "Are you sure you want to edit this user? (%s `%s`)".formatted(operation, uuid) +
+                                ((user.getDiscordAccounts().isEmpty() && user.getMinecraftAccounts().size() == 1) ?
+                                        " This will lead to the removal of the user from the database." : "");
+
+                        return event.createFollowup(message)
+                                .withComponents(Util.CHOICE_ROW)
+                                .flatMap(m -> getMinecraftConfirmListener(user, operation, uuid, m, event));
+                    });
         } else if (discord != null) {
-            return discord.flatMap(u -> event.createFollowup("Are you sure you want to edit this user?")
-                    .withComponents(Util.CHOICE_ROW)
-                    .flatMap(m -> getDiscordConfirmListener(user, operation, u, m, event)));
+            return event.deferReply().then(discord)
+                    .flatMap(u -> {
+                        String message = "Are you sure you want to edit this user? (%s `%s`)".formatted(operation, u.getTag()) +
+                                ((user.getMinecraftAccounts().isEmpty() && user.getDiscordAccounts().size() == 1) ?
+                                        " This will lead to the removal of the user from the database." : "");
+
+                        return event.createFollowup(message)
+                                .withComponents(Util.CHOICE_ROW)
+                                .flatMap(m -> getDiscordConfirmListener(user, operation, u, m, event));
+                    });
         } else {
             return event.reply("You need to specify either a Minecraft UUID or a Discord ID.").withEphemeral(true);
         }
@@ -138,13 +156,22 @@ public class EditCommand implements ICommand {
                         user.getMinecraftAccounts().remove(uuid);
                     }
 
-                    return evt.deferReply().withEphemeral(true)
+                    if (user.isEmpty()) {
+                        user.getServers(serverRepository).forEach(s -> {
+                            s.getBlacklistedUsers().remove(user);
+                            serverRepository.save(s);
+                        });
+                        userRepository.delete(user);
+                    } else {
+                        userRepository.save(user);
+                    }
+
+                    return evt.edit().withComponents(EDITED)
                             .thenMany(Flux.fromIterable(serverRepository.findAll()))
                             .filter(s -> s.getBlacklistedUsers().contains(user))
                             .map(Server::getMinecraftId)
                             .flatMap(su -> Mono.fromRunnable(() -> rabbitTemplate.convertAndSend(MCIBot.EDIT_EXCHANGE, su.toString(), editMessage)))
-                            .then(Mono.fromRunnable(() -> userRepository.save(user)))
-                            .then(evt.createFollowup("Successfully edited user with UUID `%s`.".formatted(uuid)))
+                            .then(evt.createFollowup("Successfully edited user with UUID `%s`.".formatted(uuid)).withEphemeral(true))
                             .then();
                 }).timeout(Duration.ofMinutes(5))
                 .onErrorResume(TimeoutException.class, t -> other.editReply().withComponents(Util.CANCELLED).then())
@@ -173,10 +200,20 @@ public class EditCommand implements ICommand {
                         mono = guilds.flatMap(g -> g.unban(discordUser.getId())).then();
                     }
 
-                    return evt.deferReply().withEphemeral(true)
+                    if (user.isEmpty()) {
+                        user.getServers(serverRepository).forEach(s -> {
+                            s.getBlacklistedUsers().remove(user);
+                            serverRepository.save(s);
+                        });
+                        userRepository.delete(user);
+                    } else {
+                        userRepository.save(user);
+                    }
+
+                    return evt.edit().withComponents(EDITED)
                             .then(mono)
-                            .then(Mono.fromRunnable(() -> userRepository.save(user)))
-                            .then(evt.createFollowup("Successfully edited user with discord account `%s`.".formatted(discordUser.getTag())))
+                            .onErrorResume(t -> Mono.empty())
+                            .then(evt.createFollowup("Successfully edited user with discord account `%s`.".formatted(discordUser.getTag())).withEphemeral(true))
                             .then();
                 }).timeout(Duration.ofMinutes(5))
                 .onErrorResume(TimeoutException.class, t -> other.editReply().withComponents(Util.CANCELLED).then())

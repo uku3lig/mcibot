@@ -9,6 +9,7 @@ import java.util.UUID;
 
 public interface UserRepository extends Repository<BlacklistedUser, Long> {
     void save(BlacklistedUser user);
+    void delete(BlacklistedUser user);
     Optional<BlacklistedUser> findById(long id);
 
     Optional<BlacklistedUser> findByDiscordAccountsContaining(long discordId);
