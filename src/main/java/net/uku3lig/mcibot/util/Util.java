@@ -112,6 +112,14 @@ public class Util {
         }
     }
 
+    public static Optional<Long> toLong(String str) {
+        try {
+            return Optional.of(Long.parseLong(str));
+        } catch (Exception e) {
+            return Optional.empty();
+        }
+    }
+
     @Data
     private static class Profile {
         private String id;
