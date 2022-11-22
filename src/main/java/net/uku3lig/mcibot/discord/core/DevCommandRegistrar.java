@@ -9,6 +9,7 @@ import org.springframework.boot.ApplicationArguments;
 import org.springframework.boot.ApplicationRunner;
 import org.springframework.context.annotation.Profile;
 import org.springframework.stereotype.Component;
+import reactor.core.publisher.Mono;
 
 import java.util.List;
 import java.util.Objects;
@@ -16,8 +17,8 @@ import java.util.Objects;
 @Component
 @RequiredArgsConstructor
 @Slf4j
-@Profile("!dev")
-public class CommandRegistrar implements ApplicationRunner {
+@Profile("dev")
+public class DevCommandRegistrar implements ApplicationRunner {
     private final RestClient client;
     private final List<ICommand> commands;
 
@@ -31,9 +32,11 @@ public class CommandRegistrar implements ApplicationRunner {
         List<ApplicationCommandRequest> requests = this.commands.stream().map(ICommand::getCommandData).toList();
 
         //Register the commands
-        applicationService.bulkOverwriteGlobalApplicationCommand(applicationId, requests)
-                .doOnNext(response -> log.info("Registered {} global commands", requests.size()))
-                .doOnError(e -> log.error("Failed to register global commands", e))
+        client.getGuilds()
+                .flatMap(guild -> applicationService.bulkOverwriteGuildApplicationCommand(applicationId, guild.id().asLong(), requests)
+                        .then(Mono.just(guild.id().asLong())))
+                .doOnNext(id -> log.info("Registered commands for guild {}", id))
+                .doOnError(e -> log.error("Could not register commands", e))
                 .subscribe();
     }
 }
