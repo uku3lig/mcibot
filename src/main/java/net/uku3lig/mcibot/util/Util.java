@@ -1,13 +1,16 @@
 package net.uku3lig.mcibot.util;
 
+import discord4j.common.util.Snowflake;
 import discord4j.core.event.domain.interaction.ButtonInteractionEvent;
 import discord4j.core.event.domain.interaction.InteractionCreateEvent;
 import discord4j.core.object.component.ActionRow;
 import discord4j.core.object.component.Button;
 import discord4j.core.object.entity.Message;
 import discord4j.discordjson.json.ApplicationCommandOptionChoiceData;
+import discord4j.rest.util.Permission;
 import lombok.Data;
 import lombok.extern.slf4j.Slf4j;
+import net.uku3lig.mcibot.MCIBot;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.reactive.function.client.WebClient;
 import org.springframework.web.servlet.ModelAndView;
@@ -118,6 +121,16 @@ public class Util {
         } catch (Exception e) {
             return Optional.empty();
         }
+    }
+
+    public static boolean isNotMciAdmin(InteractionCreateEvent event) {
+        Optional<Long> guildId = event.getInteraction().getGuildId().map(Snowflake::asLong);
+        if (guildId.isEmpty() || guildId.get() != MCIBot.getManager().getConfig().getMainDiscordId()) {
+            return true;
+        }
+
+        // check if the user has the required permissions
+        return !event.getInteraction().getMember().map(m -> m.getBasePermissions().block()).map(p -> p.contains(Permission.MANAGE_GUILD)).orElse(false);
     }
 
     @Data

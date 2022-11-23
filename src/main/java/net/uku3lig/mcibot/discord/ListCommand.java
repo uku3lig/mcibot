@@ -99,15 +99,7 @@ public class ListCommand implements ICommand {
                     .flatMap(e -> event.createFollowup().withEmbeds(e));
 
             case "servers" -> {
-                Optional<Long> guildId = event.getInteraction().getGuildId().map(Snowflake::asLong);
-                if (guildId.isEmpty() || guildId.get() != MCIBot.getManager().getConfig().getMainDiscordId()) {
-                    yield event.reply("This command can only be used in the MCI server.").withEphemeral(true);
-                }
-
-                // check if the user has the required permissions
-                if (!event.getInteraction().getMember().map(m -> m.getBasePermissions().block()).map(p -> p.contains(Permission.MANAGE_GUILD)).orElse(false)) {
-                    yield event.reply("You need to be an admin to use this command.").withEphemeral(true);
-                }
+                if (Util.isNotMciAdmin(event)) yield event.reply("You need to be an admin to use this command.").withEphemeral(true);
 
                 yield event.deferReply()
                         .thenMany(Flux.fromIterable(serverRepository.findAll()))
