@@ -1,5 +1,6 @@
 package net.uku3lig.mcibot.discord;
 
+import discord4j.common.util.Snowflake;
 import discord4j.core.GatewayDiscordClient;
 import discord4j.core.event.domain.interaction.ButtonInteractionEvent;
 import discord4j.core.event.domain.interaction.ChatInputInteractionEvent;
@@ -7,7 +8,11 @@ import discord4j.core.object.command.ApplicationCommandInteractionOption;
 import discord4j.core.object.command.ApplicationCommandInteractionOptionValue;
 import discord4j.core.object.component.ActionRow;
 import discord4j.core.object.component.Button;
+import discord4j.core.object.entity.Guild;
 import discord4j.core.object.entity.Message;
+import discord4j.core.object.entity.User;
+import discord4j.core.spec.EmbedCreateFields;
+import discord4j.core.spec.EmbedCreateSpec;
 import discord4j.discordjson.json.ApplicationCommandOptionData;
 import discord4j.discordjson.json.ApplicationCommandRequest;
 import lombok.AllArgsConstructor;
@@ -17,6 +22,7 @@ import net.uku3lig.mcibot.jpa.ServerRepository;
 import net.uku3lig.mcibot.model.Server;
 import net.uku3lig.mcibot.util.Util;
 import org.springframework.stereotype.Service;
+import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
 import java.time.Duration;
@@ -77,6 +83,21 @@ public class ServerCommand implements ICommand {
                                 .required(true)
                                 .build())
                         .build())
+                .addOption(ApplicationCommandOptionData.builder()
+                        .name("list")
+                        .description("List all registered servers.")
+                        .type(SUB_COMMAND.getValue())
+                        .build())
+                .addOption(ApplicationCommandOptionData.builder()
+                        .name("info")
+                        .description("Show info about a server.")
+                        .type(SUB_COMMAND.getValue())
+                        .addOption(ApplicationCommandOptionData.builder()
+                                .name("id")
+                                .description("The id of the discord server.")
+                                .type(STRING.getValue())
+                                .build())
+                        .build())
                 .build();
     }
 
@@ -86,6 +107,28 @@ public class ServerCommand implements ICommand {
             return event.reply("You need to be an admin to use this command.").withEphemeral(true);
 
         ApplicationCommandInteractionOption subcommand = event.getOptions().get(0);
+
+        if (subcommand.getName().equals("list")) {
+            return event.deferReply()
+                    .thenMany(Flux.fromIterable(serverRepository.findAll()))
+                    .flatMap(s -> {
+                        Mono<String> discord = client.getGuildById(Snowflake.of(s.getDiscordId())).map(Guild::getName);
+                        Mono<String> minecraft = Mono.just(s.getMinecraftId()).map(UUID::toString);
+                        return Mono.zip(Mono.just(s.getDiscordId()), discord, minecraft, Mono.just(s.getBlacklistedUsers().size()));
+                    })
+                    .map(t -> EmbedCreateFields.Field.of("ID: " + t.getT1(), "Discord: `%s`%nMinecraft: `%s`%n`%d` blacklisted users"
+                            .formatted(t.getT2(), t.getT3(), t.getT4()), false))
+                    .collectList()
+                    .map(l -> EmbedCreateSpec.builder()
+                            .title("Registered servers")
+                            .fields(l)
+                            .footer("Do /list local <id> to show info about a specific server", null)
+                            .build()
+                    )
+                    .flatMap(e -> event.createFollowup().withEmbeds(e))
+                    .then();
+        }
+
         Server server = subcommand.getOption("id")
                 .flatMap(ApplicationCommandInteractionOption::getValue)
                 .map(ApplicationCommandInteractionOptionValue::asString)
@@ -133,6 +176,33 @@ public class ServerCommand implements ICommand {
                 yield event.deferReply()
                         .then(event.createFollowup("Are you sure you want to edit server `%s`?".formatted(server.getDiscordId())).withComponents(Util.CHOICE_ROW))
                         .flatMap(m -> getEditListener(server, toEdit, value.get(), editor, event, m));
+            }
+
+            case "info" -> {
+                Mono<String> name = client.getGuildById(Snowflake.of(server.getDiscordId()))
+                        .map(Guild::getName)
+                        .map("`%s`"::formatted);
+
+                Mono<String> users = Flux.fromIterable(server.getBlacklistedUsers())
+                        .flatMap(u -> {
+                            Mono<String> tag = client.getUserById(Snowflake.of(u.getDiscordAccounts().get(0))).map(User::getTag);
+                            Mono<String> username = Util.getMinecraftUsername(u.getMinecraftAccounts().get(0));
+                            return Mono.zip(Mono.just(u.getId()), tag, username);
+                        })
+                        .map(t -> "ID: `%s` (`%s`, `%s`)".formatted(t.getT1(), t.getT2(), t.getT3()))
+                        .collectList()
+                        .map(l -> l.isEmpty() ? "None" : String.join("\n", l));
+
+                yield event.deferReply()
+                        .then(Mono.zip(name, users))
+                        .map(t -> EmbedCreateSpec.builder()
+                                .title("Server (ID: %d)".formatted(server.getDiscordId()))
+                                .addField("Discord Server", t.getT1(), false)
+                                .addField("Minecraft Server", "`%s`".formatted(server.getMinecraftId()), false)
+                                .addField("Blacklisted Users", t.getT2(), false)
+                                .build())
+                        .flatMap(e -> event.createFollowup().withEmbeds(e))
+                        .then();
             }
             default -> event.reply("Invalid subcommand.").withEphemeral(true);
         };
