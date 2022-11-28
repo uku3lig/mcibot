@@ -12,13 +12,17 @@ import discord4j.discordjson.json.ApplicationCommandOptionData;
 import discord4j.discordjson.json.ApplicationCommandRequest;
 import lombok.AllArgsConstructor;
 import net.uku3lig.mcibot.discord.core.ICommand;
+import net.uku3lig.mcibot.jpa.ServerRepository;
 import net.uku3lig.mcibot.jpa.UserRepository;
 import net.uku3lig.mcibot.model.BlacklistedUser;
+import net.uku3lig.mcibot.model.Server;
 import net.uku3lig.mcibot.util.Util;
 import org.springframework.stereotype.Service;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
+import java.util.LinkedList;
+import java.util.List;
 import java.util.Optional;
 
 import static discord4j.core.object.command.ApplicationCommandOption.Type.INTEGER;
@@ -29,6 +33,7 @@ import static discord4j.core.object.command.ApplicationCommandOption.Type.SUB_CO
 public class ListCommand implements ICommand {
     private GatewayDiscordClient client;
     private UserRepository userRepository;
+    private ServerRepository serverRepository;
 
     @Override
     public ApplicationCommandRequest getCommandData() {
@@ -59,22 +64,35 @@ public class ListCommand implements ICommand {
         ApplicationCommandInteractionOption subcommand = event.getOptions().get(0);
 
         return (switch (subcommand.getName()) {
-            case "all" -> event.deferReply()
-                    .thenMany(Flux.fromIterable(userRepository.findAll()))
-                    .flatMap(u -> {
-                        Mono<String> tag = client.getUserById(Snowflake.of(u.getDiscordAccounts().get(0))).map(User::getTag);
-                        Mono<String> username = Util.getMinecraftUsername(u.getMinecraftAccounts().get(0));
-                        return Mono.zip(Mono.just(u.getId()), tag, username);
-                    })
-                    .map(t -> EmbedCreateFields.Field.of("ID: " + t.getT1(), "Discord: `%s`%nMinecraft: `%s`".formatted(t.getT2(), t.getT3()), false))
-                    .collectList()
-                    .map(l -> EmbedCreateSpec.builder()
-                            .title("Blacklisted users")
-                            .fields(l)
-                            .footer("Do /list info <id> to show info about a specific user", null)
-                            .build()
-                    )
-                    .flatMap(e -> event.createFollowup().withEmbeds(e));
+            case "all" -> {
+                List<BlacklistedUser> users;
+                Optional<Server> server = event.getInteraction().getGuildId().map(Snowflake::asLong).flatMap(serverRepository::findByDiscordId);
+
+                if (server.isPresent()) {
+                    users = new LinkedList<>(server.get().getBlacklistedUsers());
+                } else if (!Util.isNotMciAdmin(event)) {
+                    yield event.reply("You are not allowed to do that.").withEphemeral(true);
+                } else {
+                    users = userRepository.findAll();
+                }
+
+                yield event.deferReply()
+                        .thenMany(Flux.fromIterable(users))
+                        .flatMap(u -> {
+                            Mono<String> tag = client.getUserById(Snowflake.of(u.getDiscordAccounts().get(0))).map(User::getTag);
+                            Mono<String> username = Util.getMinecraftUsername(u.getMinecraftAccounts().get(0));
+                            return Mono.zip(Mono.just(u.getId()), tag, username);
+                        })
+                        .map(t -> EmbedCreateFields.Field.of("ID: " + t.getT1(), "Discord: `%s`%nMinecraft: `%s`".formatted(t.getT2(), t.getT3()), false))
+                        .collectList()
+                        .map(l -> EmbedCreateSpec.builder()
+                                .title("Blacklisted users")
+                                .fields(l)
+                                .footer("Do /list info <id> to show info about a specific user", null)
+                                .build()
+                        )
+                        .flatMap(e -> event.createFollowup().withEmbeds(e));
+            }
 
             case "info" -> {
                 Optional<BlacklistedUser> bu = subcommand.getOption("id")
