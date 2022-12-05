@@ -103,12 +103,12 @@ public class ServerCommand implements ICommand {
 
     @Override
     public Mono<Void> onInteraction(ChatInputInteractionEvent event) {
-        if (Util.isNotMciAdmin(event))
-            return event.reply("You need to be an admin to use this command.").withEphemeral(true);
-
         ApplicationCommandInteractionOption subcommand = event.getOptions().get(0);
 
         if (subcommand.getName().equals("list")) {
+            if (Util.isNotMciAdmin(event))
+                return event.reply("You need to be an admin to use this command.").withEphemeral(true);
+
             return event.deferReply()
                     .thenMany(Flux.fromIterable(serverRepository.findAll()))
                     .flatMap(s -> {
@@ -129,6 +129,50 @@ public class ServerCommand implements ICommand {
                     .then();
         }
 
+        if (subcommand.getName().equals("info")) {
+            Optional<Server> serverOptional = subcommand.getOption("id")
+                    .flatMap(ApplicationCommandInteractionOption::getValue)
+                    .map(ApplicationCommandInteractionOptionValue::asString)
+                    .flatMap(Util::toLong)
+                    .flatMap(serverRepository::findByDiscordId);
+
+            if (Util.isNotMciAdmin(event) || serverOptional.isEmpty()) {
+                serverOptional = event.getInteraction().getGuildId()
+                        .map(Snowflake::asLong)
+                        .flatMap(serverRepository::findByDiscordId);
+            }
+
+            final Server server = serverOptional.orElse(null);
+
+            if (server == null)
+                return event.reply("Invalid ID. (use `/list servers` to show all the servers)").withEphemeral(true);
+
+            Mono<String> name = client.getGuildById(Snowflake.of(server.getDiscordId()))
+                    .map(Guild::getName)
+                    .map("`%s`"::formatted);
+
+            Mono<String> users = Flux.fromIterable(server.getBlacklistedUsers())
+                    .flatMap(u -> {
+                        Mono<String> tag = client.getUserById(Snowflake.of(u.getDiscordAccounts().get(0))).map(User::getTag);
+                        Mono<String> username = Util.getMinecraftUsername(u.getMinecraftAccounts().get(0));
+                        return Mono.zip(Mono.just(u.getId()), tag, username);
+                    })
+                    .map(t -> "ID: `%s` (`%s`, `%s`)".formatted(t.getT1(), t.getT2(), t.getT3()))
+                    .collectList()
+                    .map(l -> l.isEmpty() ? "None" : String.join("\n", l));
+
+            return event.deferReply()
+                    .then(Mono.zip(name, users))
+                    .map(t -> EmbedCreateSpec.builder()
+                            .title("Server (ID: %d)".formatted(server.getDiscordId()))
+                            .addField("Discord Server", t.getT1(), false)
+                            .addField("Minecraft Server", "`%s`".formatted(server.getMinecraftId()), false)
+                            .addField("Blacklisted Users", t.getT2(), false)
+                            .build())
+                    .flatMap(e -> event.createFollowup().withEmbeds(e))
+                    .then();
+        }
+
         Server server = subcommand.getOption("id")
                 .flatMap(ApplicationCommandInteractionOption::getValue)
                 .map(ApplicationCommandInteractionOptionValue::asString)
@@ -138,6 +182,9 @@ public class ServerCommand implements ICommand {
 
         if (server == null)
             return event.reply("Invalid ID. (use `/list servers` to show all the servers)").withEphemeral(true);
+
+        if (Util.isNotMciAdmin(event))
+            return event.reply("You need to be an admin to use this command.").withEphemeral(true);
 
         return switch (subcommand.getName()) {
             case "remove" -> event.deferReply()
@@ -176,33 +223,6 @@ public class ServerCommand implements ICommand {
                 yield event.deferReply()
                         .then(event.createFollowup("Are you sure you want to edit server `%s`?".formatted(server.getDiscordId())).withComponents(Util.CHOICE_ROW))
                         .flatMap(m -> getEditListener(server, toEdit, value.get(), editor, event, m));
-            }
-
-            case "info" -> {
-                Mono<String> name = client.getGuildById(Snowflake.of(server.getDiscordId()))
-                        .map(Guild::getName)
-                        .map("`%s`"::formatted);
-
-                Mono<String> users = Flux.fromIterable(server.getBlacklistedUsers())
-                        .flatMap(u -> {
-                            Mono<String> tag = client.getUserById(Snowflake.of(u.getDiscordAccounts().get(0))).map(User::getTag);
-                            Mono<String> username = Util.getMinecraftUsername(u.getMinecraftAccounts().get(0));
-                            return Mono.zip(Mono.just(u.getId()), tag, username);
-                        })
-                        .map(t -> "ID: `%s` (`%s`, `%s`)".formatted(t.getT1(), t.getT2(), t.getT3()))
-                        .collectList()
-                        .map(l -> l.isEmpty() ? "None" : String.join("\n", l));
-
-                yield event.deferReply()
-                        .then(Mono.zip(name, users))
-                        .map(t -> EmbedCreateSpec.builder()
-                                .title("Server (ID: %d)".formatted(server.getDiscordId()))
-                                .addField("Discord Server", t.getT1(), false)
-                                .addField("Minecraft Server", "`%s`".formatted(server.getMinecraftId()), false)
-                                .addField("Blacklisted Users", t.getT2(), false)
-                                .build())
-                        .flatMap(e -> event.createFollowup().withEmbeds(e))
-                        .then();
             }
             default -> event.reply("Invalid subcommand.").withEphemeral(true);
         };

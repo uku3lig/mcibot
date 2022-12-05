@@ -12,16 +12,13 @@ import discord4j.discordjson.json.ApplicationCommandOptionData;
 import discord4j.discordjson.json.ApplicationCommandRequest;
 import lombok.AllArgsConstructor;
 import net.uku3lig.mcibot.discord.core.ICommand;
-import net.uku3lig.mcibot.jpa.ServerRepository;
 import net.uku3lig.mcibot.jpa.UserRepository;
 import net.uku3lig.mcibot.model.BlacklistedUser;
-import net.uku3lig.mcibot.model.Server;
 import net.uku3lig.mcibot.util.Util;
 import org.springframework.stereotype.Service;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
-import java.util.LinkedList;
 import java.util.List;
 import java.util.Optional;
 
@@ -33,7 +30,6 @@ import static discord4j.core.object.command.ApplicationCommandOption.Type.SUB_CO
 public class ListCommand implements ICommand {
     private GatewayDiscordClient client;
     private UserRepository userRepository;
-    private ServerRepository serverRepository;
 
     @Override
     public ApplicationCommandRequest getCommandData() {
@@ -65,16 +61,7 @@ public class ListCommand implements ICommand {
 
         return (switch (subcommand.getName()) {
             case "all" -> {
-                List<BlacklistedUser> users;
-                Optional<Server> server = event.getInteraction().getGuildId().map(Snowflake::asLong).flatMap(serverRepository::findByDiscordId);
-
-                if (server.isPresent()) {
-                    users = new LinkedList<>(server.get().getBlacklistedUsers());
-                } else if (!Util.isNotMciAdmin(event)) {
-                    yield event.reply("You are not allowed to do that.").withEphemeral(true);
-                } else {
-                    users = userRepository.findAll();
-                }
+                List<BlacklistedUser> users = userRepository.findAll();
 
                 yield event.deferReply()
                         .thenMany(Flux.fromIterable(users))
