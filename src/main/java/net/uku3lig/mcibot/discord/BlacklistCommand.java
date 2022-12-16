@@ -13,8 +13,6 @@ import discord4j.core.object.entity.Message;
 import discord4j.core.object.entity.User;
 import discord4j.discordjson.json.ApplicationCommandOptionData;
 import discord4j.discordjson.json.ApplicationCommandRequest;
-import lombok.AllArgsConstructor;
-import lombok.Data;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import net.uku3lig.mcibot.MCIBot;
@@ -22,6 +20,7 @@ import net.uku3lig.mcibot.discord.core.ICommand;
 import net.uku3lig.mcibot.jpa.ServerRepository;
 import net.uku3lig.mcibot.jpa.UserRepository;
 import net.uku3lig.mcibot.model.BlacklistedUser;
+import net.uku3lig.mcibot.model.MinecraftUserList;
 import net.uku3lig.mcibot.model.Server;
 import net.uku3lig.mcibot.util.Util;
 import org.springframework.amqp.rabbit.core.RabbitTemplate;
@@ -30,6 +29,7 @@ import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
 import java.time.Duration;
+import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -142,7 +142,7 @@ public class BlacklistCommand implements ICommand {
                     server.getBlacklistedUsers().add(user);
                     serverRepository.save(server);
 
-                    MinecraftUser mu = new MinecraftUser(username, user.getReason());
+                    MinecraftUserList mu = new MinecraftUserList(Collections.singleton(username), user.getReason());
                     log.info("Sending {} to RabbitMQ.", mu);
                     rabbitTemplate.convertAndSend(MCIBot.BAN_EXCHANGE, server.getMinecraftId().toString(), mu);
 
@@ -157,12 +157,5 @@ public class BlacklistCommand implements ICommand {
                 }).timeout(Duration.ofDays(7))
                 .onErrorResume(TimeoutException.class, t -> msg.edit().withComponents(Util.CANCELLED).then())
                 .next();
-    }
-
-    @Data
-    @AllArgsConstructor
-    public static class MinecraftUser {
-        private String username;
-        private String reason;
     }
 }
