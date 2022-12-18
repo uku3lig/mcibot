@@ -43,6 +43,11 @@ public class MCIBot {
     }
 
     @Bean
+    public Config config() {
+        return manager.getConfig();
+    }
+
+    @Bean
     public DataSource dataSource() {
         DriverManagerDataSource dataSource = new DriverManagerDataSource();
         dataSource.setUrl(manager.getConfig().getConnectionUrl());

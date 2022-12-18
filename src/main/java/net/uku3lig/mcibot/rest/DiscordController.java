@@ -7,7 +7,6 @@ import discord4j.core.object.component.Button;
 import discord4j.core.object.entity.User;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import net.uku3lig.mcibot.MCIBot;
 import net.uku3lig.mcibot.config.Config;
 import net.uku3lig.mcibot.jpa.ServerRepository;
 import net.uku3lig.mcibot.model.DiscordUser;
@@ -32,6 +31,7 @@ public class DiscordController {
     private DiscordUtil discord;
     private final ServerRepository repository;
     private final GatewayDiscordClient client;
+    private final Config config;
 
 
     @GetMapping("/discord/oauth")
@@ -68,8 +68,7 @@ public class DiscordController {
 
     private boolean isDiscordBroken() {
         if (discord == null) {
-            Config config = MCIBot.getManager().getConfig();
-            if (config.getClientId() == -1 || config.getClientSecret() == null || config.getClientSecret().isEmpty()) {
+            if (config.getClientId() == -1 || config.getClientSecret() == null || config.getClientSecret().isEmpty() || config.getMainDiscordId() == -1) {
                 return true;
             }
 
