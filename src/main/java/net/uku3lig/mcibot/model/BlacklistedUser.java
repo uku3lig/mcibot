@@ -34,10 +34,13 @@ public class BlacklistedUser implements Serializable {
 
     private String reason;
 
-    public BlacklistedUser(long discordId, UUID minecraftUuid, String reason) {
+    private String proofUrl;
+
+    public BlacklistedUser(long discordId, UUID minecraftUuid, String reason, String proofUrl) {
         this.discordAccounts = new LinkedList<>(Collections.singletonList(discordId));
         this.minecraftAccounts = new LinkedList<>(Collections.singletonList(minecraftUuid));
         this.reason = reason;
+        this.proofUrl = proofUrl;
         this.global = true;
     }
 

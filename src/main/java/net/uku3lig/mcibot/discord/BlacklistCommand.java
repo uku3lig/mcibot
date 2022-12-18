@@ -72,6 +72,11 @@ public class BlacklistCommand implements ICommand {
                         .description("The reason for the blacklist.")
                         .type(STRING.getValue())
                         .build())
+                .addOption(ApplicationCommandOptionData.builder()
+                        .name("proof_url")
+                        .description("The url to the proof of the reason.")
+                        .type(STRING.getValue())
+                        .build())
                 .build();
     }
 
@@ -84,6 +89,8 @@ public class BlacklistCommand implements ICommand {
         Mono<User> user = event.getOption("user").flatMap(ApplicationCommandInteractionOption::getValue)
                 .map(ApplicationCommandInteractionOptionValue::asUser).orElse(Mono.empty());
         String reason = event.getOption("reason").flatMap(ApplicationCommandInteractionOption::getValue)
+                .map(ApplicationCommandInteractionOptionValue::asString).orElse(null);
+        String proof = event.getOption("proof_url").flatMap(ApplicationCommandInteractionOption::getValue)
                 .map(ApplicationCommandInteractionOptionValue::asString).orElse(null);
 
         return user.zipWith(Util.getMinecraftUUID(username))
@@ -101,7 +108,7 @@ public class BlacklistCommand implements ICommand {
                     return event.reply("Are you sure you want to blacklist this user? (discord: `%s`, minecraft: `%s`)".formatted(u.getTag(), username))
                             .withComponents(Util.CHOICE_ROW)
                             .then(event.getReply())
-                            .flatMap(m -> getConfirmListener(username, u.getTag(), opt.orElse(new BlacklistedUser(u.getId().asLong(), uuid, reason)), m, event));
+                            .flatMap(m -> getConfirmListener(username, u.getTag(), opt.orElse(new BlacklistedUser(u.getId().asLong(), uuid, reason, proof)), m, event));
                 });
     }
 

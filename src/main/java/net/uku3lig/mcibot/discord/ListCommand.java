@@ -5,6 +5,8 @@ import discord4j.core.GatewayDiscordClient;
 import discord4j.core.event.domain.interaction.ChatInputInteractionEvent;
 import discord4j.core.object.command.ApplicationCommandInteractionOption;
 import discord4j.core.object.command.ApplicationCommandInteractionOptionValue;
+import discord4j.core.object.component.ActionRow;
+import discord4j.core.object.component.Button;
 import discord4j.core.object.entity.User;
 import discord4j.core.spec.EmbedCreateFields;
 import discord4j.core.spec.EmbedCreateSpec;
@@ -29,6 +31,8 @@ import static discord4j.core.object.command.ApplicationCommandOption.Type.SUB_CO
 @Service
 @AllArgsConstructor
 public class ListCommand implements ICommand {
+    private static final Button NO_PROOF = Button.secondary("proof", "No proof link").disabled();
+
     private GatewayDiscordClient client;
     private UserRepository userRepository;
     private final ServerRepository serverRepository;
@@ -110,6 +114,8 @@ public class ListCommand implements ICommand {
 
                 String reason = Optional.ofNullable(bu.get().getReason()).orElse("None");
 
+                Button proof = Optional.ofNullable(bu.get().getProofUrl()).map(u -> Button.link(u, "Proof")).orElse(NO_PROOF);
+
                 yield event.deferReply()
                         .then(Mono.zip(discord, minecraft))
                         .map(t -> EmbedCreateSpec.builder()
@@ -118,7 +124,7 @@ public class ListCommand implements ICommand {
                                 .addField("Minecraft Accounts", t.getT2(), false)
                                 .addField("Reason", reason, false)
                                 .build())
-                        .flatMap(e -> event.createFollowup().withEmbeds(e));
+                        .flatMap(e -> event.createFollowup().withEmbeds(e).withComponents(ActionRow.of(proof)));
             }
             default -> event.reply("Invalid subcommand.").withEphemeral(true);
         }).then();
