@@ -5,12 +5,15 @@ import discord4j.core.event.domain.interaction.ButtonInteractionEvent;
 import discord4j.core.event.domain.interaction.InteractionCreateEvent;
 import discord4j.core.object.component.ActionRow;
 import discord4j.core.object.component.Button;
+import discord4j.core.object.entity.Guild;
 import discord4j.core.object.entity.Message;
 import discord4j.discordjson.json.ApplicationCommandOptionChoiceData;
 import discord4j.rest.util.Permission;
 import lombok.Data;
 import lombok.extern.slf4j.Slf4j;
 import net.uku3lig.mcibot.MCIBot;
+import net.uku3lig.mcibot.jpa.ServerRepository;
+import net.uku3lig.mcibot.model.Server;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.reactive.function.client.WebClient;
 import org.springframework.web.servlet.ModelAndView;
@@ -131,6 +134,18 @@ public class Util {
 
         // check if the user has the required permissions
         return !event.getInteraction().getMember().map(m -> m.getBasePermissions().block()).map(p -> p.contains(Permission.MANAGE_GUILD)).orElse(false);
+    }
+
+    public static boolean isNotServerOwner(InteractionCreateEvent event, ServerRepository serverRepository) {
+        Optional<Server> server = event.getInteraction().getGuildId().map(Snowflake::asLong)
+                .flatMap(serverRepository::findByDiscordId);
+
+        if (server.isEmpty()) return true;
+
+        Optional<Snowflake> ownerId = event.getInteraction().getGuild()
+                .map(Guild::getOwnerId).blockOptional();
+
+        return ownerId.isEmpty() || !event.getInteraction().getUser().getId().equals(ownerId.get());
     }
 
     @Data

@@ -127,6 +127,9 @@ public class ServerCommand implements ICommand {
 
     @Override
     public Mono<Void> onInteraction(ChatInputInteractionEvent event) {
+        if (Util.isNotMciAdmin(event) && Util.isNotServerOwner(event, serverRepository))
+            return event.reply("You're not allowed to do that.").withEphemeral(true);
+
         ApplicationCommandInteractionOption subcommand = event.getOptions().get(0);
 
         if (subcommand.getName().equals("list")) {
@@ -141,6 +144,9 @@ public class ServerCommand implements ICommand {
         }
 
         if (subcommand.getName().equals("blacklist")) {
+            if (Util.isNotServerOwner(event, serverRepository))
+                return event.reply("You need to be a server owner to do that.").withEphemeral(true);
+
             return manageServerBlacklists(event, subcommand);
         }
 

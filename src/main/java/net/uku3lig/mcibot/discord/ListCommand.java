@@ -12,6 +12,7 @@ import discord4j.discordjson.json.ApplicationCommandOptionData;
 import discord4j.discordjson.json.ApplicationCommandRequest;
 import lombok.AllArgsConstructor;
 import net.uku3lig.mcibot.discord.core.ICommand;
+import net.uku3lig.mcibot.jpa.ServerRepository;
 import net.uku3lig.mcibot.jpa.UserRepository;
 import net.uku3lig.mcibot.model.BlacklistedUser;
 import net.uku3lig.mcibot.util.Util;
@@ -30,6 +31,7 @@ import static discord4j.core.object.command.ApplicationCommandOption.Type.SUB_CO
 public class ListCommand implements ICommand {
     private GatewayDiscordClient client;
     private UserRepository userRepository;
+    private final ServerRepository serverRepository;
 
     @Override
     public ApplicationCommandRequest getCommandData() {
@@ -57,6 +59,9 @@ public class ListCommand implements ICommand {
 
     @Override
     public Mono<Void> onInteraction(ChatInputInteractionEvent event) {
+        if (Util.isNotMciAdmin(event) && Util.isNotServerOwner(event, serverRepository))
+            return event.reply("You're not allowed to do that.").withEphemeral(true);
+
         ApplicationCommandInteractionOption subcommand = event.getOptions().get(0);
 
         return (switch (subcommand.getName()) {
