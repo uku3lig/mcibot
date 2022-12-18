@@ -2,8 +2,6 @@ package net.uku3lig.mcibot.rest;
 
 import discord4j.common.util.Snowflake;
 import discord4j.core.GatewayDiscordClient;
-import discord4j.core.object.component.ActionRow;
-import discord4j.core.object.component.Button;
 import discord4j.core.object.entity.User;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -56,8 +54,9 @@ public class DiscordController {
                 .flatMap(id -> client.getUserById(Snowflake.of(id)))
                 .doOnNext(u -> log.info("User {} linked discord server {} to minecraft server {}", u.getTag(), guildId, minecraftId))
                 .flatMap(User::getPrivateChannel)
-                .flatMap(pc -> pc.createMessage("%s has requested to link the minecraft server to the discord server %s".formatted(minecraftName, guildId))
-                        .withComponents(ActionRow.of(Button.secondary("lol", "haha cant click me").disabled(true))))
+                .zipWith(client.getGuildById(Snowflake.of(guildId)))
+                .flatMap(t -> t.getT1().createMessage("`%s` has linked the minecraft server `%s` to the discord server `%s`."
+                                .formatted(minecraftName, minecraftId, t.getT2().getName())))
                 .subscribe();
 
         Server server = new Server(guildId, minecraftId, new HashSet<>());
