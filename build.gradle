@@ -1,12 +1,12 @@
 plugins {
-    id 'org.springframework.boot' version '3.0.0-SNAPSHOT'
-    id 'io.spring.dependency-management' version '1.0.14.RELEASE'
-    id "io.freefair.lombok" version "6.5.1"
+    id 'org.springframework.boot' version "3.0.0"
+    id 'io.spring.dependency-management' version '1.1.0'
+    id "io.freefair.lombok" version "6.6.1"
     id 'java'
 }
 
-group = "net.uku3lig"
-version = "0.0.1"
+group = project.maven_group
+version = project.project_version
 sourceCompatibility = '17'
 
 configurations {
@@ -30,10 +30,10 @@ dependencies {
     implementation "org.springframework.boot:spring-boot-starter-amqp"
     developmentOnly "org.springframework.boot:spring-boot-devtools"
 
-    implementation "com.discord4j:discord4j-core:3.2.3"
-    implementation "com.moandjiezana.toml:toml4j:0.7.2"
-    implementation "org.reflections:reflections:0.10.2"
-    runtimeOnly 'org.mariadb.jdbc:mariadb-java-client:3.0.8'
+    implementation "com.discord4j:discord4j-core:${project.discord4j_version}"
+    implementation "com.moandjiezana.toml:toml4j:${project.toml4j_version}"
+    implementation "org.reflections:reflections:${project.reflections_version}"
+    runtimeOnly "org.mariadb.jdbc:mariadb-java-client:${project.mariadb_version}"
 }
 
 tasks.withType(JavaCompile).configureEach {
