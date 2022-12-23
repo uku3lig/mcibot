@@ -28,9 +28,7 @@ public class MCIBot {
     @Getter
     private static final ConfigManager<Config> manager = ConfigManager.create(Config.class, "mcibot_config");
 
-    public static final String BAN_EXCHANGE = "mci_ban";
-    public static final String UNBAN_EXCHANGE = "mci_unban";
-    public static final String EDIT_EXCHANGE = "mci_edit";
+    public static final String EXCHANGE = "mci_blacklist";
 
     public static void main(String[] args) {
         SpringApplication.run(MCIBot.class, args);
@@ -80,17 +78,7 @@ public class MCIBot {
 
     @Bean
     public Exchange banExchange() {
-        return new DirectExchange(BAN_EXCHANGE, true, false);
-    }
-
-    @Bean
-    public Exchange unbanExchange() {
-        return new DirectExchange(UNBAN_EXCHANGE, true, false);
-    }
-
-    @Bean
-    public Exchange editExchange() {
-        return new DirectExchange(EDIT_EXCHANGE, true, false);
+        return new DirectExchange(EXCHANGE, true, false);
     }
 
     @Bean

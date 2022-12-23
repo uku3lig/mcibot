@@ -21,6 +21,7 @@ import net.uku3lig.mcibot.discord.core.ICommand;
 import net.uku3lig.mcibot.jpa.ServerRepository;
 import net.uku3lig.mcibot.jpa.UserRepository;
 import net.uku3lig.mcibot.model.BlacklistedUser;
+import net.uku3lig.mcibot.model.MinecraftUserList;
 import net.uku3lig.mcibot.model.Server;
 import net.uku3lig.mcibot.util.Util;
 import org.springframework.amqp.rabbit.core.RabbitTemplate;
@@ -132,8 +133,9 @@ public class PardonCommand implements ICommand {
                     if (!Util.isButton(evt, "pardon_confirm", msg)) return Mono.empty();
                     log.info("Server owner {} pardoned {} on server {}", evt.getInteraction().getUser().getTag(), name, server.getMinecraftId());
 
-                    log.info("Sending {} to RabbitMQ.", minecraft);
-                    rabbitTemplate.convertAndSend(MCIBot.UNBAN_EXCHANGE, server.getMinecraftId().toString(), minecraft);
+                    final MinecraftUserList list = new MinecraftUserList(minecraft, null, true);
+                    log.info("Sending {} to RabbitMQ.", list);
+                    rabbitTemplate.convertAndSend(MCIBot.EXCHANGE, server.getMinecraftId().toString(), list);
 
                     server.getBlacklistedUsers().remove(user);
                     serverRepository.save(server);

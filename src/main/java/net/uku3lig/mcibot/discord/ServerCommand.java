@@ -301,10 +301,10 @@ public class ServerCommand implements ICommand {
                         .thenMany(Flux.fromIterable(user.getMinecraftAccounts()))
                         .flatMap(Util::getMinecraftUsername)
                         .collectList()
-                        .map(l -> new MinecraftUserList(l, user.getReason()))
-                        .doOnNext(l -> {
-                            log.info("Sending {} to RabbitMQ.", l);
-                            rabbitTemplate.convertAndSend(MCIBot.BAN_EXCHANGE, server.getMinecraftId().toString(), l);
+                        .map(l -> new MinecraftUserList(l, user.getReason(), false))
+                        .doOnNext(list -> {
+                            log.info("Sending {} to RabbitMQ.", list);
+                            rabbitTemplate.convertAndSend(MCIBot.EXCHANGE, server.getMinecraftId().toString(), list);
                         })
                         .then(client.getGuildById(Snowflake.of(server.getDiscordId())))
                         .flatMap(g -> Flux.fromIterable(user.getDiscordAccounts())
@@ -322,10 +322,10 @@ public class ServerCommand implements ICommand {
                         .thenMany(Flux.fromIterable(user.getMinecraftAccounts()))
                         .flatMap(Util::getMinecraftUsername)
                         .collectList()
-                        .map(l -> new MinecraftUserList(l, user.getReason()))
-                        .doOnNext(l -> {
-                            log.info("Sending {} to RabbitMQ.", l);
-                            rabbitTemplate.convertAndSend(MCIBot.UNBAN_EXCHANGE, server.getMinecraftId().toString(), l);
+                        .map(l -> new MinecraftUserList(l, user.getReason(), true))
+                        .doOnNext(list -> {
+                            log.info("Sending {} to RabbitMQ.", list);
+                            rabbitTemplate.convertAndSend(MCIBot.EXCHANGE, server.getMinecraftId().toString(), list);
                         })
                         .then(client.getGuildById(Snowflake.of(server.getDiscordId())))
                         .flatMap(g -> Flux.fromIterable(user.getDiscordAccounts())

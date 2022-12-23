@@ -20,6 +20,7 @@ import net.uku3lig.mcibot.discord.core.ICommand;
 import net.uku3lig.mcibot.jpa.ServerRepository;
 import net.uku3lig.mcibot.jpa.UserRepository;
 import net.uku3lig.mcibot.model.BlacklistedUser;
+import net.uku3lig.mcibot.model.MinecraftUserList;
 import net.uku3lig.mcibot.model.Server;
 import net.uku3lig.mcibot.util.Util;
 import org.springframework.amqp.rabbit.core.RabbitTemplate;
@@ -28,6 +29,7 @@ import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
 import java.time.Duration;
+import java.util.Collections;
 import java.util.UUID;
 import java.util.concurrent.TimeoutException;
 
@@ -141,7 +143,9 @@ public class EditCommand implements ICommand {
                         return evt.reply("You can't confirm this pardon.").withEphemeral(true);
 
                     log.info("{} edited user {}: {} {}", other.getInteraction().getUser().getTag(), user.getId(), operation, uuid);
-                    final EditMessage editMessage = new EditMessage(operation, uuid.toString());
+                    final Mono<MinecraftUserList> list = Util.getMinecraftUsername(uuid)
+                            .map(Collections::singletonList)
+                            .map(l -> new MinecraftUserList(l, null, !operation.equals("add")));
 
                     if (operation.equals("add")) {
                         user.getMinecraftAccounts().add(uuid);
@@ -162,8 +166,8 @@ public class EditCommand implements ICommand {
                     return evt.edit().withComponents(EDITED)
                             .thenMany(Flux.fromIterable(serverRepository.findAll()))
                             .filter(s -> s.getBlacklistedUsers().contains(user))
-                            .map(Server::getMinecraftId)
-                            .flatMap(su -> Mono.fromRunnable(() -> rabbitTemplate.convertAndSend(MCIBot.EDIT_EXCHANGE, su.toString(), editMessage)))
+                            .zipWith(list)
+                            .flatMap(t -> Mono.fromRunnable(() -> rabbitTemplate.convertAndSend(MCIBot.EXCHANGE, t.getT1().getMinecraftId().toString(), t.getT2())))
                             .then(evt.createFollowup("Successfully edited user with UUID `%s`.".formatted(uuid)).withEphemeral(true))
                             .then();
                 }).timeout(Duration.ofMinutes(5))
@@ -212,8 +216,5 @@ public class EditCommand implements ICommand {
                 }).timeout(Duration.ofMinutes(5))
                 .onErrorResume(TimeoutException.class, t -> other.editReply().withComponents(Util.CANCELLED).then())
                 .next();
-    }
-
-    private record EditMessage(String operation, String value) {
     }
 }
