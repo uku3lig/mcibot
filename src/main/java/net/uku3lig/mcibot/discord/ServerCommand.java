@@ -111,6 +111,7 @@ public class ServerCommand implements ICommand {
                         .type(SUB_COMMAND.getValue())
                         .addOption(ApplicationCommandOptionData.builder()
                                 .name("operation")
+                                .description("The operation to execute")
                                 .type(STRING.getValue())
                                 .choices(Util.choices("add", REMOVE))
                                 .required(true)
