@@ -47,7 +47,7 @@ public class DiscordController {
         UUID minecraftId = UUID.fromString(decodedState[0]);
         String minecraftName = decodedState[1];
 
-        discord.getAccessToken(code, "http://localhost:8080/discord")
+        discord.getAccessToken(code, config.getRedirectUri())
                 .map(TokenResponse::getAccessToken)
                 .flatMap(discord::getUser)
                 .map(DiscordUser::getId)
@@ -56,7 +56,7 @@ public class DiscordController {
                 .flatMap(User::getPrivateChannel)
                 .zipWith(client.getGuildById(Snowflake.of(guildId)))
                 .flatMap(t -> t.getT1().createMessage("`%s` has linked the minecraft server `%s` to the discord server `%s`."
-                                .formatted(minecraftName, minecraftId, t.getT2().getName())))
+                        .formatted(minecraftName, minecraftId, t.getT2().getName())))
                 .subscribe();
 
         Server server = new Server(guildId, minecraftId, new HashSet<>());
@@ -67,7 +67,12 @@ public class DiscordController {
 
     private boolean isDiscordBroken() {
         if (discord == null) {
-            if (config.getClientId() == -1 || config.getClientSecret() == null || config.getClientSecret().isEmpty() || config.getMainDiscordId() == -1) {
+            if (config.getClientId() == -1
+                    || config.getClientSecret() == null
+                    || config.getClientSecret().isBlank()
+                    || config.getMainDiscordId() == -1
+                    || config.getRedirectUri().isBlank())
+            {
                 return true;
             }
 

@@ -15,6 +15,7 @@ public class Config implements IConfig<Config> {
     private long clientId;
     private String clientSecret;
     private String discordToken;
+    private String redirectUri;
 
     private String rabbitMqHost;
     private int rabbitMqPort;
@@ -23,6 +24,15 @@ public class Config implements IConfig<Config> {
 
     @Override
     public Config defaultConfig() {
-        return new Config("jdbc:mariadb://localhost:3306/mci_db", "mci", "", 0, "", "", "", 5672, 0);
+        return new Config("jdbc:mariadb://localhost:3306/mci_db",
+                "mci",
+                "",
+                0,
+                "",
+                "",
+                "",
+                "",
+                5672,
+                0);
     }
 }
