@@ -46,7 +46,7 @@ public class ConfigSerializer<T extends IConfig<T>> {
         try {
             return new Toml().read(file).to(configClass);
         } catch (Exception e) {
-            log.warn("A corrupted configuration file was found, overwriting it with the default config");
+            log.warn("A corrupted configuration file was found, overwriting it with the default config", e);
             serialize(defaultConfig.get());
             return defaultConfig.get();
         }
