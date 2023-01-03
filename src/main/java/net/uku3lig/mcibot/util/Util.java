@@ -18,8 +18,6 @@ import org.springframework.http.HttpStatus;
 import org.springframework.web.reactive.function.client.WebClient;
 import org.springframework.web.servlet.ModelAndView;
 import reactor.core.publisher.Mono;
-import reactor.util.function.Tuple2;
-import reactor.util.function.Tuple3;
 
 import java.util.*;
 
@@ -90,10 +88,6 @@ public class Util {
         } else {
             return event.reply("You can't cancel this interaction.").withEphemeral(true).then();
         }
-    }
-
-    public static <T1, T2, T3> Mono<Tuple3<T1, T2, T3>> t2to3(Tuple2<T1, T2> t, T3 t3) {
-        return Mono.zip(Mono.just(t.getT1()), Mono.just(t.getT2()), Mono.just(t3));
     }
 
     public static ApplicationCommandOptionChoiceData choice(String value) {

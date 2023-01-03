@@ -28,7 +28,6 @@ import org.springframework.amqp.rabbit.core.RabbitTemplate;
 import org.springframework.stereotype.Service;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
-import reactor.util.function.Tuple2;
 
 import java.time.Duration;
 import java.util.List;
@@ -53,59 +52,46 @@ public class PardonCommand implements ICommand {
                 .name("pardon")
                 .description("Pardon an user.")
                 .addOption(ApplicationCommandOptionData.builder()
-                        .name("minecraft")
-                        .description("The user's Minecraft username.")
-                        .type(ApplicationCommandOption.Type.STRING.getValue())
-                        .required(false)
-                        .build())
-                .addOption(ApplicationCommandOptionData.builder()
-                        .name("discord")
-                        .description("The user's Discord ID.")
-                        .type(ApplicationCommandOption.Type.USER.getValue())
-                        .required(false)
+                        .name("id")
+                        .description("The ID of the user to pardon")
+                        .type(ApplicationCommandOption.Type.INTEGER.getValue())
+                        .required(true)
                         .build())
                 .build();
     }
 
     @Override
     public Mono<Void> onInteraction(ChatInputInteractionEvent event) {
-        if (Util.isNotMciAdmin(event)) return event.reply("You need to be an admin to use this command.").withEphemeral(true);
+        if (Util.isNotMciAdmin(event))
+            return event.reply("You need to be an admin to use this command.").withEphemeral(true);
 
-        Optional<String> minecraft = event.getOption("minecraft").flatMap(ApplicationCommandInteractionOption::getValue)
-                .map(ApplicationCommandInteractionOptionValue::asString);
-        Optional<Mono<User>> discord = event.getOption("discord").flatMap(ApplicationCommandInteractionOption::getValue)
-                .map(ApplicationCommandInteractionOptionValue::asUser);
+        Optional<BlacklistedUser> user = event.getOption("id")
+                .flatMap(ApplicationCommandInteractionOption::getValue)
+                .map(ApplicationCommandInteractionOptionValue::asLong)
+                .flatMap(userRepository::findById);
 
-        Mono<Tuple2<BlacklistedUser, String>> get;
-        if (minecraft.isPresent()) {
-            get = Util.getMinecraftUUID(minecraft.get()).flatMap(uuid -> Mono.justOrEmpty(userRepository.findByMinecraftAccountsContaining(uuid)))
-                    .zipWith(Mono.just(minecraft.get()));
-        } else if (discord.isPresent()) {
-            get = discord.get().flatMap(user -> Mono.justOrEmpty(userRepository.findByDiscordAccountsContaining(user.getId().asLong()))
-                    .zipWith(Mono.just(user.getTag())));
-        } else {
-            return event.reply("You need to specify a username or a Discord user.").withEphemeral(true);
+        if (user.isEmpty() || !user.get().isGlobal()) {
+            return event.reply("User not found.").withEphemeral(true);
         }
 
-        return event.deferReply()
-                .then(get)
-                .filter(t -> t.getT1().isGlobal()) // if not globally blacklisted, ignore
-                .zipWhen(t -> Flux.fromIterable(t.getT1().getMinecraftAccounts()).flatMap(Util::getMinecraftUsername).collectList(), Util::t2to3)
-                .flatMap(m -> m)
-                .switchIfEmpty(event.createFollowup("User not found.").then(Mono.empty()))
-                .flatMap(t -> event.createFollowup("Are you sure you want to pardon this user?")
-                        .withComponents(Util.CHOICE_ROW)
-                        .flatMap(m -> getConfirmListener(t.getT1(), t.getT2(), t.getT3(), m, event)));
+        Mono<List<String>> usernames = Flux.fromIterable(user.get().getMinecraftAccounts())
+                .flatMap(Util::getMinecraftUsername)
+                .collectList();
+
+        return event.createFollowup("Are you sure you want to pardon this user?")
+                .withComponents(Util.CHOICE_ROW)
+                .zipWith(usernames)
+                .flatMap(t -> getConfirmListener(user.get(), t.getT2(), t.getT1(), event));
     }
 
-    private Mono<Void> getConfirmListener(BlacklistedUser user, String name, List<String> minecraft, Message message, ChatInputInteractionEvent other) {
+    private Mono<Void> getConfirmListener(BlacklistedUser user, List<String> minecraft, Message message, ChatInputInteractionEvent other) {
         return client.on(ButtonInteractionEvent.class, evt -> {
                     if (Util.isCancelButton(evt, message)) return Util.onCancel(evt, other);
                     if (!Util.isButton(evt, "confirm", message)) return Mono.empty();
                     if (!evt.getInteraction().getUser().equals(other.getInteraction().getUser()))
                         return evt.reply("You can't confirm this pardon.").withEphemeral(true);
 
-                    log.info("New globally pardoned user: name={}, by={}", name, evt.getInteraction().getUser().getTag());
+                    log.info("New globally pardoned user: id={}, by={}", user.getId(), evt.getInteraction().getUser().getTag());
                     user.setGlobal(false);
                     userRepository.save(user);
                     List<Server> servers = serverRepository.findAll().stream().filter(s -> s.getBlacklistedUsers().contains(user)).toList();
@@ -116,9 +102,9 @@ public class PardonCommand implements ICommand {
                             .flatMap(server -> client.getGuildById(Snowflake.of(server.getDiscordId()))
                                     .flatMap(Guild::getOwner)
                                     .flatMap(User::getPrivateChannel)
-                                    .flatMap(c -> c.createMessage("The MCI admin team has pardoned a user (name: `%s`)".formatted(name))
+                                    .flatMap(c -> c.createMessage("The MCI admin team has pardoned a user (id: `%s`)".formatted(user.getId()))
                                             .withComponents(ActionRow.of(PARDON_CONFIRM, Util.CANCEL_BUTTON)))
-                                    .flatMap(msg -> getPardonListener(user, name, server, minecraft, msg, evt))
+                                    .flatMap(msg -> getPardonListener(user, server, minecraft, msg, evt))
                                     .doOnError(t -> log.error("Could not send pardon message to owner.", t))
                             )
                             .then();
@@ -127,11 +113,11 @@ public class PardonCommand implements ICommand {
                 .next();
     }
 
-    private Mono<Void> getPardonListener(BlacklistedUser user, String name, Server server, List<String> minecraft, Message msg, ButtonInteractionEvent other) {
+    private Mono<Void> getPardonListener(BlacklistedUser user, Server server, List<String> minecraft, Message msg, ButtonInteractionEvent other) {
         return client.on(ButtonInteractionEvent.class, evt -> {
                     if (Util.isCancelButton(evt, msg)) return Util.onCancel(evt, other);
                     if (!Util.isButton(evt, "pardon_confirm", msg)) return Mono.empty();
-                    log.info("Server owner {} pardoned {} on server {}", evt.getInteraction().getUser().getTag(), name, server.getMinecraftId());
+                    log.info("Server owner {} pardoned User[id={}] on server {}", evt.getInteraction().getUser().getTag(), user.getId(), server.getMinecraftId());
 
                     final MinecraftUserList list = new MinecraftUserList(minecraft, null, true);
                     log.info("Sending {} to RabbitMQ.", list);
