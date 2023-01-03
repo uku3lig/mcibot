@@ -8,7 +8,6 @@ import discord4j.core.object.command.ApplicationCommandInteractionOption;
 import discord4j.core.object.command.ApplicationCommandInteractionOptionValue;
 import discord4j.core.object.component.ActionRow;
 import discord4j.core.object.component.Button;
-import discord4j.core.object.entity.Guild;
 import discord4j.core.object.entity.Message;
 import discord4j.core.object.entity.User;
 import discord4j.discordjson.json.ApplicationCommandOptionData;
@@ -82,7 +81,8 @@ public class BlacklistCommand implements ICommand {
 
     @Override
     public Mono<Void> onInteraction(ChatInputInteractionEvent event) {
-        if (Util.isNotMciAdmin(event)) return event.reply("You need to be an admin to use this command.").withEphemeral(true);
+        if (Util.isNotMciAdmin(event))
+            return event.reply("You need to be an admin to use this command.").withEphemeral(true);
 
         String username = event.getOption("username").flatMap(ApplicationCommandInteractionOption::getValue)
                 .map(ApplicationCommandInteractionOptionValue::asString).orElse("");
@@ -128,10 +128,10 @@ public class BlacklistCommand implements ICommand {
                             .then(evt.createFollowup("Blacklist message sent to all owners.").withEphemeral(true))
                             .thenMany(Flux.fromIterable(servers))
                             .flatMap(server -> client.getGuildById(Snowflake.of(server.getDiscordId()))
-                                    .flatMap(Guild::getOwner)
-                                    .flatMap(User::getPrivateChannel)
-                                    .flatMap(c -> c.createMessage("The MCI admin team has blacklisted a new user (discord: `%s`, minecraft: `%s`)"
-                                            .formatted(tag, username)).withComponents(ActionRow.of(BLACKLIST_CONFIRM, Util.CANCEL_BUTTON)))
+                                    .zipWhen(g -> g.getOwner().flatMap(User::getPrivateChannel))
+                                    .flatMap(t -> t.getT2().createMessage("The MCI admin team has blacklisted a new user (discord: `%s`, minecraft: `%s`)%nWhat action would you like to take on server `%s`?"
+                                                    .formatted(tag, username, t.getT1().getName()))
+                                            .withComponents(ActionRow.of(BLACKLIST_CONFIRM, Util.CANCEL_BUTTON)))
                                     .flatMap(msg -> getBlacklistListener(bu, server, username, msg, evt))
                                     .doOnError(t -> log.error("Could not send blacklist message to owner.", t))
                             ).then();
