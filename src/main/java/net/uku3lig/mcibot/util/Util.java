@@ -7,6 +7,7 @@ import discord4j.core.object.component.ActionRow;
 import discord4j.core.object.component.Button;
 import discord4j.core.object.entity.Guild;
 import discord4j.core.object.entity.Message;
+import discord4j.core.object.entity.PartialMember;
 import discord4j.discordjson.json.ApplicationCommandOptionChoiceData;
 import discord4j.rest.util.Permission;
 import lombok.Data;
@@ -121,13 +122,12 @@ public class Util {
     }
 
     public static boolean isNotMciAdmin(InteractionCreateEvent event) {
-        Optional<Long> guildId = event.getInteraction().getGuildId().map(Snowflake::asLong);
-        if (guildId.isEmpty() || guildId.get() != MCIBot.getManager().getConfig().getMainDiscordId()) {
-            return true;
-        }
-
-        // check if the user has the required permissions
-        return !event.getInteraction().getMember().map(m -> m.getBasePermissions().block()).map(p -> p.contains(Permission.MANAGE_GUILD)).orElse(false);
+        final Snowflake mainId = Snowflake.of(MCIBot.getManager().getConfig().getMainDiscordId());
+        return Boolean.TRUE.equals(event.getClient().getGuildMembers(mainId)
+                .filter(m -> m.getId().equals(event.getInteraction().getUser().getId()))
+                .flatMap(PartialMember::getBasePermissions)
+                .all(p -> p.contains(Permission.MANAGE_GUILD))
+                .block());
     }
 
     public static boolean isNotServerOwner(InteractionCreateEvent event, ServerRepository serverRepository) {
