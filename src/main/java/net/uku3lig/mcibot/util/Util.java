@@ -2,7 +2,6 @@ package net.uku3lig.mcibot.util;
 
 import discord4j.common.util.Snowflake;
 import discord4j.core.event.domain.interaction.ButtonInteractionEvent;
-import discord4j.core.event.domain.interaction.DeferrableInteractionEvent;
 import discord4j.core.event.domain.interaction.InteractionCreateEvent;
 import discord4j.core.object.component.ActionRow;
 import discord4j.core.object.component.Button;
@@ -122,16 +121,13 @@ public class Util {
         }
     }
 
-    public static Mono<Void> checkMciAdmin(DeferrableInteractionEvent event) {
+    public static boolean isNotMciAdmin(InteractionCreateEvent event) {
         final Snowflake mainId = Snowflake.of(MCIBot.getManager().getConfig().getMainDiscordId());
-        return event.getClient().getGuildMembers(mainId)
+        return Boolean.TRUE.equals(event.getClient().getGuildMembers(mainId)
                 .filter(m -> m.getId().equals(event.getInteraction().getUser().getId()))
                 .flatMap(PartialMember::getBasePermissions)
                 .all(p -> p.contains(Permission.MANAGE_GUILD))
-                .flatMap(b -> Boolean.TRUE.equals(b) ? Mono.empty()
-                        : Mono.error(new NoSuchElementException("You need to be an admin to use this command.")))
-                .doOnError(e -> event.createFollowup(e.getMessage()).withEphemeral(true))
-                .then();
+                .block());
     }
 
     public static boolean isNotServerOwner(InteractionCreateEvent event, ServerRepository serverRepository) {

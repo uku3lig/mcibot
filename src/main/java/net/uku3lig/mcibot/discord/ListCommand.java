@@ -63,12 +63,12 @@ public class ListCommand implements ICommand {
 
     @Override
     public Mono<Void> onInteraction(ChatInputInteractionEvent event) {
-        if (Util.isNotServerOwner(event, serverRepository))
+        if (Util.isNotMciAdmin(event) && Util.isNotServerOwner(event, serverRepository))
             return event.reply("You're not allowed to do that.").withEphemeral(true);
 
         ApplicationCommandInteractionOption subcommand = event.getOptions().get(0);
 
-        Mono<Void> action = (switch (subcommand.getName()) {
+        return (switch (subcommand.getName()) {
             case "all" -> {
                 List<BlacklistedUser> users = userRepository.findAll();
 
@@ -128,7 +128,5 @@ public class ListCommand implements ICommand {
             }
             default -> event.reply("Invalid subcommand.").withEphemeral(true);
         }).then();
-
-        return Util.checkMciAdmin(event).then(action);
     }
 }
