@@ -81,8 +81,6 @@ public class EditCommand implements ICommand {
 
     @Override
     public Mono<Void> onInteraction(ChatInputInteractionEvent event) {
-        if (Util.isNotMciAdmin(event)) return event.reply("You need to be an admin to use this command.").withEphemeral(true);
-
         final BlacklistedUser user = event.getOption("id")
                 .flatMap(ApplicationCommandInteractionOption::getValue)
                 .map(ApplicationCommandInteractionOptionValue::asLong)
@@ -109,7 +107,9 @@ public class EditCommand implements ICommand {
                 .map(ApplicationCommandInteractionOptionValue::asUser).orElse(null);
 
         if (minecraft != null) {
-            return event.deferReply().then(minecraft)
+            return event.deferReply()
+                    .then(Util.checkMciAdmin(event))
+                    .then(minecraft)
                     .flatMap(uuid -> {
                         String message = "Are you sure you want to edit this user? (%s `%s`)".formatted(operation, uuid) +
                                 ((user.getDiscordAccounts().isEmpty() && user.getMinecraftAccounts().size() == 1) ?
@@ -120,7 +120,9 @@ public class EditCommand implements ICommand {
                                 .flatMap(m -> getMinecraftConfirmListener(user, operation, uuid, m, event));
                     });
         } else if (discord != null) {
-            return event.deferReply().then(discord)
+            return event.deferReply()
+                    .then(Util.checkMciAdmin(event))
+                    .then(discord)
                     .flatMap(u -> {
                         String message = "Are you sure you want to edit this user? (%s `%s`)".formatted(operation, u.getTag()) +
                                 ((user.getMinecraftAccounts().isEmpty() && user.getDiscordAccounts().size() == 1) ?

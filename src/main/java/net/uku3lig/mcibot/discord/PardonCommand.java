@@ -62,9 +62,6 @@ public class PardonCommand implements ICommand {
 
     @Override
     public Mono<Void> onInteraction(ChatInputInteractionEvent event) {
-        if (Util.isNotMciAdmin(event))
-            return event.reply("You need to be an admin to use this command.").withEphemeral(true);
-
         Optional<BlacklistedUser> user = event.getOption("id")
                 .flatMap(ApplicationCommandInteractionOption::getValue)
                 .map(ApplicationCommandInteractionOptionValue::asLong)
@@ -78,10 +75,11 @@ public class PardonCommand implements ICommand {
                 .flatMap(Util::getMinecraftUsername)
                 .collectList();
 
-        return event.createFollowup("Are you sure you want to pardon this user?")
-                .withComponents(Util.CHOICE_ROW)
-                .zipWith(usernames)
-                .flatMap(t -> getConfirmListener(user.get(), t.getT2(), t.getT1(), event));
+        return event.deferReply().then(Util.checkMciAdmin(event))
+                .then(event.createFollowup("Are you sure you want to pardon this user?")
+                        .withComponents(Util.CHOICE_ROW)
+                        .zipWith(usernames)
+                        .flatMap(t -> getConfirmListener(user.get(), t.getT2(), t.getT1(), event)));
     }
 
     private Mono<Void> getConfirmListener(BlacklistedUser user, List<String> minecraft, Message message, ChatInputInteractionEvent other) {

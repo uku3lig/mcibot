@@ -81,9 +81,6 @@ public class BlacklistCommand implements ICommand {
 
     @Override
     public Mono<Void> onInteraction(ChatInputInteractionEvent event) {
-        if (Util.isNotMciAdmin(event))
-            return event.reply("You need to be an admin to use this command.").withEphemeral(true);
-
         String username = event.getOption("username").flatMap(ApplicationCommandInteractionOption::getValue)
                 .map(ApplicationCommandInteractionOptionValue::asString).orElse("");
         Mono<User> user = event.getOption("user").flatMap(ApplicationCommandInteractionOption::getValue)
@@ -93,7 +90,9 @@ public class BlacklistCommand implements ICommand {
         String proof = event.getOption("proof_url").flatMap(ApplicationCommandInteractionOption::getValue)
                 .map(ApplicationCommandInteractionOptionValue::asString).orElse(null);
 
-        return user.zipWith(Util.getMinecraftUUID(username))
+        return event.deferReply()
+                .then(Util.checkMciAdmin(event))
+                .then(user.zipWith(Util.getMinecraftUUID(username)))
                 .switchIfEmpty(event.reply("Invalid minecraft username.").withEphemeral(true).then(Mono.empty()))
                 .flatMap(p -> {
                     final User u = p.getT1();

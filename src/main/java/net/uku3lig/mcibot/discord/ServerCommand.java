@@ -128,16 +128,13 @@ public class ServerCommand implements ICommand {
 
     @Override
     public Mono<Void> onInteraction(ChatInputInteractionEvent event) {
-        if (Util.isNotMciAdmin(event) && Util.isNotServerOwner(event, serverRepository))
+        if (Util.isNotServerOwner(event, serverRepository))
             return event.reply("You're not allowed to do that.").withEphemeral(true);
 
         ApplicationCommandInteractionOption subcommand = event.getOptions().get(0);
 
         if (subcommand.getName().equals("list")) {
-            if (Util.isNotMciAdmin(event))
-                return event.reply("You need to be an admin to use this command.").withEphemeral(true);
-
-            return listServers(event);
+            return Util.checkMciAdmin(event).then(listServers(event));
         }
 
         if (subcommand.getName().equals("info")) {
@@ -161,10 +158,7 @@ public class ServerCommand implements ICommand {
         if (server == null)
             return event.reply("Invalid ID. (use `/list servers` to show all the servers)").withEphemeral(true);
 
-        if (Util.isNotMciAdmin(event))
-            return event.reply("You need to be an admin to use this command.").withEphemeral(true);
-
-        return switch (subcommand.getName()) {
+        Mono<Void> action = switch (subcommand.getName()) {
             case REMOVE -> event.deferReply()
                     .then(event.createFollowup("Are you sure you want to remove server `%s`?".formatted(server.getDiscordId())).withComponents(Util.CHOICE_ROW))
                     .flatMap(m -> getRemoveListener(server, event, m));
@@ -204,6 +198,8 @@ public class ServerCommand implements ICommand {
             }
             default -> event.reply("Invalid subcommand.").withEphemeral(true);
         };
+
+        return Util.checkMciAdmin(event).then(action);
     }
 
     private Mono<Void> listServers(ChatInputInteractionEvent event) {
@@ -228,48 +224,45 @@ public class ServerCommand implements ICommand {
     }
 
     private Mono<Void> showServerInfo(ChatInputInteractionEvent event) {
-        Optional<Server> serverOptional = event.getOptions().get(0)
-                .getOption("id")
-                .flatMap(ApplicationCommandInteractionOption::getValue)
-                .map(ApplicationCommandInteractionOptionValue::asString)
-                .flatMap(Util::toLong)
-                .flatMap(serverRepository::findByDiscordId);
-
-        if (Util.isNotMciAdmin(event) || serverOptional.isEmpty()) {
-            serverOptional = event.getInteraction().getGuildId()
-                    .map(Snowflake::asLong)
-                    .flatMap(serverRepository::findByDiscordId);
-        }
-
-        final Server server = serverOptional.orElse(null);
-
-        if (server == null)
-            return event.reply("Invalid ID. (use `/list servers` to show all the servers)").withEphemeral(true);
-
-        Mono<String> name = client.getGuildById(Snowflake.of(server.getDiscordId()))
-                .map(Guild::getName)
-                .map("`%s`"::formatted);
-
-        Mono<String> users = Flux.fromIterable(server.getBlacklistedUsers())
-                .flatMap(u -> {
-                    Mono<String> tag = client.getUserById(Snowflake.of(u.getDiscordAccounts().get(0))).map(User::getTag);
-                    Mono<String> username = Util.getMinecraftUsername(u.getMinecraftAccounts().get(0));
-                    return Mono.zip(Mono.just(u.getId()), tag, username);
-                })
-                .map(t -> "ID: `%s` (`%s`, `%s`)".formatted(t.getT1(), t.getT2(), t.getT3()))
-                .collectList()
-                .map(l -> l.isEmpty() ? "None" : String.join("\n", l));
-
+        // i am going to hell for this :sob:
         return event.deferReply()
-                .then(Mono.zip(name, users))
-                .map(t -> EmbedCreateSpec.builder()
-                        .title("Server (ID: %d)".formatted(server.getDiscordId()))
-                        .addField("Discord Server", t.getT1(), false)
-                        .addField("Minecraft Server", "`%s`".formatted(server.getMinecraftId()), false)
-                        .addField("Blacklisted Users", t.getT2(), false)
-                        .build())
-                .flatMap(e -> event.createFollowup().withEmbeds(e))
-                .then();
+                .then(Mono.justOrEmpty(event.getOptions().get(0)
+                        .getOption("id")
+                        .flatMap(ApplicationCommandInteractionOption::getValue)
+                        .map(ApplicationCommandInteractionOptionValue::asString)
+                        .flatMap(Util::toLong)
+                        .flatMap(serverRepository::findByDiscordId)))
+                .switchIfEmpty(Util.checkMciAdmin(event).onErrorResume(t -> Mono.empty())
+                        .then(Mono.justOrEmpty(event.getInteraction().getGuildId()
+                                .map(Snowflake::asLong)
+                                .flatMap(serverRepository::findByDiscordId))))
+                .switchIfEmpty(event.reply("Invalid ID. (use `/list servers` to show all the servers)").withEphemeral(true).then(Mono.empty()))
+                .flatMap(server -> {
+                    Mono<String> name = client.getGuildById(Snowflake.of(server.getDiscordId()))
+                            .map(Guild::getName)
+                            .map("`%s`"::formatted);
+
+                    Mono<String> users = Flux.fromIterable(server.getBlacklistedUsers())
+                            .flatMap(u -> {
+                                Mono<String> tag = client.getUserById(Snowflake.of(u.getDiscordAccounts().get(0))).map(User::getTag);
+                                Mono<String> username = Util.getMinecraftUsername(u.getMinecraftAccounts().get(0));
+                                return Mono.zip(Mono.just(u.getId()), tag, username);
+                            })
+                            .map(t -> "ID: `%s` (`%s`, `%s`)".formatted(t.getT1(), t.getT2(), t.getT3()))
+                            .collectList()
+                            .map(l -> l.isEmpty() ? "None" : String.join("\n", l));
+
+                    return event.deferReply()
+                            .then(Mono.zip(name, users))
+                            .map(t -> EmbedCreateSpec.builder()
+                                    .title("Server (ID: %d)".formatted(server.getDiscordId()))
+                                    .addField("Discord Server", t.getT1(), false)
+                                    .addField("Minecraft Server", "`%s`".formatted(server.getMinecraftId()), false)
+                                    .addField("Blacklisted Users", t.getT2(), false)
+                                    .build())
+                            .flatMap(e -> event.createFollowup().withEmbeds(e))
+                            .then();
+                });
     }
 
     public Mono<Void> manageServerBlacklists(ChatInputInteractionEvent event, ApplicationCommandInteractionOption subcommand) {
