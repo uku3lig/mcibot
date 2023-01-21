@@ -127,7 +127,9 @@ public class Util {
                 .filter(m -> m.getId().equals(event.getInteraction().getUser().getId()))
                 .flatMap(PartialMember::getBasePermissions)
                 .all(p -> p.contains(Permission.MANAGE_GUILD))
-                .block());
+                .onErrorReturn(true)
+                .blockOptional()
+                .orElse(true));
     }
 
     public static boolean isNotServerOwner(InteractionCreateEvent event, ServerRepository serverRepository) {
