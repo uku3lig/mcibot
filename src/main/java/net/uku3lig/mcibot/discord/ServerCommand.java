@@ -232,7 +232,7 @@ public class ServerCommand implements ICommand {
                         .map(ApplicationCommandInteractionOptionValue::asString)
                         .flatMap(Util::toLong)
                         .flatMap(serverRepository::findByDiscordId)))
-                .switchIfEmpty(Util.checkMciAdmin(event).onErrorResume(t -> Mono.empty())
+                .switchIfEmpty(Util.checkMciAdmin(event).onErrorResume(t -> Mono.just(null))
                         .then(Mono.justOrEmpty(event.getInteraction().getGuildId()
                                 .map(Snowflake::asLong)
                                 .flatMap(serverRepository::findByDiscordId))))
