@@ -2,6 +2,8 @@ package net.uku3lig.mcibot;
 
 import discord4j.core.DiscordClientBuilder;
 import discord4j.core.GatewayDiscordClient;
+import discord4j.gateway.intent.Intent;
+import discord4j.gateway.intent.IntentSet;
 import discord4j.rest.RestClient;
 import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
@@ -59,6 +61,8 @@ public class MCIBot {
     public GatewayDiscordClient gatewayDiscordClient() {
         return DiscordClientBuilder.create(manager.getConfig().getDiscordToken())
                 .build()
+                .gateway()
+                .setEnabledIntents(IntentSet.of(Intent.GUILD_MEMBERS, Intent.GUILD_BANS, Intent.DIRECT_MESSAGES))
                 .login()
                 .block();
     }

@@ -126,7 +126,7 @@ public class Util {
         return Boolean.TRUE.equals(event.getClient().getGuildMembers(mainId)
                 .filter(m -> m.getId().equals(event.getInteraction().getUser().getId()))
                 .flatMap(PartialMember::getBasePermissions)
-                .all(p -> p.contains(Permission.MANAGE_GUILD))
+                .any(p -> !p.contains(Permission.MANAGE_GUILD))
                 .onErrorReturn(true)
                 .blockOptional()
                 .orElse(true));
