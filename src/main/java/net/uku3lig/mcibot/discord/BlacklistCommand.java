@@ -149,9 +149,11 @@ public class BlacklistCommand implements ICommand {
                     server.getBlacklistedUsers().add(user);
                     serverRepository.save(server);
 
-                    MinecraftUserList mu = new MinecraftUserList(Collections.singletonList(username), user.getReason(), false);
-                    log.info("Sending {} to RabbitMQ.", mu);
-                    rabbitTemplate.convertAndSend(MCIBot.EXCHANGE, server.getMinecraftId().toString(), mu);
+                    if (server.getMinecraftId() != null ) {
+                        MinecraftUserList mu = new MinecraftUserList(Collections.singletonList(username), user.getReason(), false);
+                        log.info("Sending {} to RabbitMQ.", mu);
+                        rabbitTemplate.convertAndSend(MCIBot.EXCHANGE, server.getMinecraftId().toString(), mu);
+                    }
 
                     return evt.edit().withComponents(BLACKLISTED)
                             .then(client.getGuildById(Snowflake.of(server.getDiscordId())))

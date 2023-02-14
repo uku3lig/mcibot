@@ -119,9 +119,11 @@ public class PardonCommand implements ICommand {
                     if (!Util.isButton(evt, "pardon_confirm", msg)) return Mono.empty();
                     log.info("Server owner {} pardoned User[id={}] on server {}", evt.getInteraction().getUser().getTag(), user.getId(), server.getMinecraftId());
 
-                    final MinecraftUserList list = new MinecraftUserList(minecraft, null, true);
-                    log.info("Sending {} to RabbitMQ.", list);
-                    rabbitTemplate.convertAndSend(MCIBot.EXCHANGE, server.getMinecraftId().toString(), list);
+                    if (server.getMinecraftId() != null) {
+                        final MinecraftUserList list = new MinecraftUserList(minecraft, null, true);
+                        log.info("Sending {} to RabbitMQ.", list);
+                        rabbitTemplate.convertAndSend(MCIBot.EXCHANGE, server.getMinecraftId().toString(), list);
+                    }
 
                     server.getBlacklistedUsers().remove(user);
                     serverRepository.save(server);
