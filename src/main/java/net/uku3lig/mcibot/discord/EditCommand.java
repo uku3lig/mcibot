@@ -167,7 +167,10 @@ public class EditCommand implements ICommand {
                             .thenMany(Flux.fromIterable(serverRepository.findAll()))
                             .filter(s -> s.getBlacklistedUsers().contains(user))
                             .zipWith(list)
-                            .flatMap(t -> Mono.fromRunnable(() -> rabbitTemplate.convertAndSend(MCIBot.EXCHANGE, t.getT1().getMinecraftId().toString(), t.getT2())))
+                            .flatMap(t -> {
+                                if (t.getT1().getMinecraftId() == null) return Mono.fromRunnable(() -> {});
+                                return Mono.fromRunnable(() -> rabbitTemplate.convertAndSend(MCIBot.EXCHANGE, t.getT1().getMinecraftId().toString(), t.getT2()));
+                            })
                             .then(evt.createFollowup("Successfully edited user with UUID `%s`.".formatted(uuid)).withEphemeral(true))
                             .then();
                 }).timeout(Duration.ofMinutes(5))

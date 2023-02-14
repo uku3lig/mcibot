@@ -2,7 +2,7 @@ plugins {
     id("org.springframework.boot") version "3.0.0"
     id("io.spring.dependency-management") version "1.1.0"
     id("io.freefair.lombok") version "6.6.1"
-    `java`
+    java
 }
 
 group = "net.uku3lig"
@@ -11,7 +11,7 @@ version = "1.0.0"
 
 configurations {
     compileOnly {
-        extendsFrom(configurations.get("annotationProcessor"))
+        extendsFrom(configurations["annotationProcessor"])
     }
 }
 

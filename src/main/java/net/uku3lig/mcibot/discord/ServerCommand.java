@@ -211,7 +211,7 @@ public class ServerCommand implements ICommand {
                 .thenMany(Flux.fromIterable(serverRepository.findAll()))
                 .flatMap(s -> {
                     Mono<String> discord = client.getGuildById(Snowflake.of(s.getDiscordId())).map(Guild::getName);
-                    Mono<String> minecraft = Mono.just(s.getMinecraftId()).map(UUID::toString);
+                    Mono<String> minecraft = Mono.justOrEmpty(s.getMinecraftId()).map(UUID::toString).defaultIfEmpty("null");
                     return Mono.zip(Mono.just(s.getDiscordId()), discord, minecraft, Mono.just(s.getBlacklistedUsers().size()));
                 })
                 .map(t -> EmbedCreateFields.Field.of("ID: " + t.getT1(), "Discord: `%s`%nMinecraft: `%s`%n`%d` blacklisted users"
@@ -304,8 +304,10 @@ public class ServerCommand implements ICommand {
                         .collectList()
                         .map(l -> new MinecraftUserList(l, user.getReason(), false))
                         .doOnNext(list -> {
-                            log.info("Sending {} to RabbitMQ.", list);
-                            rabbitTemplate.convertAndSend(MCIBot.EXCHANGE, server.getMinecraftId().toString(), list);
+                            if (server.getMinecraftId() != null) {
+                                log.info("Sending {} to RabbitMQ.", list);
+                                rabbitTemplate.convertAndSend(MCIBot.EXCHANGE, server.getMinecraftId().toString(), list);
+                            }
                         })
                         .then(client.getGuildById(Snowflake.of(server.getDiscordId())))
                         .flatMap(g -> Flux.fromIterable(user.getDiscordAccounts())
@@ -325,8 +327,10 @@ public class ServerCommand implements ICommand {
                         .collectList()
                         .map(l -> new MinecraftUserList(l, user.getReason(), true))
                         .doOnNext(list -> {
-                            log.info("Sending {} to RabbitMQ.", list);
-                            rabbitTemplate.convertAndSend(MCIBot.EXCHANGE, server.getMinecraftId().toString(), list);
+                            if (server.getMinecraftId() != null) {
+                                log.info("Sending {} to RabbitMQ.", list);
+                                rabbitTemplate.convertAndSend(MCIBot.EXCHANGE, server.getMinecraftId().toString(), list);
+                            }
                         })
                         .then(client.getGuildById(Snowflake.of(server.getDiscordId())))
                         .flatMap(g -> Flux.fromIterable(user.getDiscordAccounts())

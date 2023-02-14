@@ -4,9 +4,9 @@ import jakarta.persistence.Entity;
 import jakarta.persistence.FetchType;
 import jakarta.persistence.Id;
 import jakarta.persistence.ManyToMany;
-import jakarta.validation.constraints.NotNull;
 import lombok.*;
 
+import javax.annotation.Nullable;
 import java.util.Objects;
 import java.util.Set;
 import java.util.UUID;
@@ -21,7 +21,7 @@ public class Server {
     @Id
     private long discordId;
 
-    @NotNull
+    @Nullable
     private UUID minecraftId;
 
     @ManyToMany(fetch = FetchType.EAGER)
