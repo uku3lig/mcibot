@@ -51,6 +51,11 @@ public class DiscordController {
                 .map(TokenResponse::getAccessToken)
                 .flatMap(discord::getUser)
                 .map(DiscordUser::getId)
+                .doOnNext(id -> {
+                    long longId = Long.parseLong(id);
+                    Server server = new Server(guildId, minecraftId, longId, new HashSet<>());
+                    repository.save(server);
+                })
                 .flatMap(id -> client.getUserById(Snowflake.of(id)))
                 .doOnNext(u -> log.info("User {} linked discord server {} to minecraft server {}", u.getTag(), guildId, minecraftId))
                 .flatMap(User::getPrivateChannel)
@@ -58,9 +63,6 @@ public class DiscordController {
                 .flatMap(t -> t.getT1().createMessage("`%s` has linked the minecraft server `%s` to the discord server `%s`."
                         .formatted(minecraftName, minecraftId, t.getT2().getName())))
                 .subscribe();
-
-        Server server = new Server(guildId, minecraftId, new HashSet<>());
-        repository.save(server);
 
         return new ModelAndView("redirect:https://discord.com/oauth2/authorized");
     }
