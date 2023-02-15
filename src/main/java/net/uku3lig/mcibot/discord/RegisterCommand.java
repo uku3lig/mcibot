@@ -2,9 +2,9 @@ package net.uku3lig.mcibot.discord;
 
 import discord4j.common.util.Snowflake;
 import discord4j.core.event.domain.interaction.ChatInputInteractionEvent;
-import discord4j.core.object.entity.Guild;
-import discord4j.core.object.entity.User;
+import discord4j.core.object.entity.PartialMember;
 import discord4j.discordjson.json.ApplicationCommandRequest;
+import discord4j.rest.util.Permission;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import net.uku3lig.mcibot.discord.core.ICommand;
@@ -36,13 +36,12 @@ public class RegisterCommand implements ICommand {
         }
 
         return event.deferReply()
-                .then(event.getInteraction().getGuild())
-                .flatMap(Guild::getOwner)
-                .map(User::getId)
-                .filter(s -> event.getInteraction().getMember().map(User::getId).filter(s::equals).isPresent())
+                .then(Mono.justOrEmpty(event.getInteraction().getMember()))
+                .flatMap(PartialMember::getBasePermissions)
+                .filter(p -> p.contains(Permission.MANAGE_GUILD)) // TODO ask owner for permission
                 .then(Mono.justOrEmpty(event.getInteraction().getGuildId()))
                 .doOnNext(serverId -> {
-                    Server server = new Server(serverId.asLong(), null, new HashSet<>());
+                    Server server = new Server(serverId.asLong(), null, event.getInteraction().getUser().getId().asLong(), new HashSet<>());
                     serverRepository.save(server);
                 })
                 .then(event.getInteraction().getGuild())

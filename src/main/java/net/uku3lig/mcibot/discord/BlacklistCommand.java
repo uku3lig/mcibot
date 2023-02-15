@@ -128,7 +128,7 @@ public class BlacklistCommand implements ICommand {
                             .then(evt.createFollowup("Blacklist message sent to all owners.").withEphemeral(true))
                             .thenMany(Flux.fromIterable(servers))
                             .flatMap(server -> client.getGuildById(Snowflake.of(server.getDiscordId()))
-                                    .zipWhen(g -> g.getOwner().flatMap(User::getPrivateChannel))
+                                    .zipWith(client.getUserById(Snowflake.of(server.getOwnerId())).flatMap(User::getPrivateChannel))
                                     .flatMap(t -> t.getT2().createMessage("The MCI admin team has blacklisted a new user (discord: `%s`, minecraft: `%s`)%nWhat action would you like to take on server `%s`?"
                                                     .formatted(tag, username, t.getT1().getName()))
                                             .withComponents(ActionRow.of(BLACKLIST_CONFIRM, Util.CANCEL_BUTTON)))

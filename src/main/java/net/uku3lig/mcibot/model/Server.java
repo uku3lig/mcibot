@@ -21,8 +21,11 @@ public class Server {
     @Id
     private long discordId;
 
+    // TODO
     @Nullable
     private UUID minecraftId;
+
+    private long ownerId;
 
     @ManyToMany(fetch = FetchType.EAGER)
     private Set<BlacklistedUser> blacklistedUsers;
