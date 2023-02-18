@@ -1,12 +1,8 @@
 package net.uku3lig.mcibot.model;
 
-import jakarta.persistence.Entity;
-import jakarta.persistence.FetchType;
-import jakarta.persistence.Id;
-import jakarta.persistence.ManyToMany;
+import jakarta.persistence.*;
 import lombok.*;
 
-import javax.annotation.Nullable;
 import java.util.Objects;
 import java.util.Set;
 import java.util.UUID;
@@ -22,7 +18,7 @@ public class Server {
     private long discordId;
 
     // TODO
-    @Nullable
+    @Column(nullable = true)
     private UUID minecraftId;
 
     private long ownerId;
