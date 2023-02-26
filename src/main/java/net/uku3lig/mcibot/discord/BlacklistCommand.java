@@ -10,6 +10,7 @@ import discord4j.core.object.component.ActionRow;
 import discord4j.core.object.component.Button;
 import discord4j.core.object.entity.Message;
 import discord4j.core.object.entity.User;
+import discord4j.core.object.entity.channel.MessageChannel;
 import discord4j.discordjson.json.ApplicationCommandOptionData;
 import discord4j.discordjson.json.ApplicationCommandRequest;
 import lombok.RequiredArgsConstructor;
@@ -128,7 +129,7 @@ public class BlacklistCommand implements ICommand {
                             .then(evt.createFollowup("Blacklist message sent to all owners.").withEphemeral(true))
                             .thenMany(Flux.fromIterable(servers))
                             .flatMap(server -> client.getGuildById(Snowflake.of(server.getDiscordId()))
-                                    .zipWith(client.getUserById(Snowflake.of(server.getOwnerId())).flatMap(User::getPrivateChannel))
+                                    .zipWith(client.getChannelById(Snowflake.of(server.getPromptChannel())).map(MessageChannel.class::cast))
                                     .flatMap(t -> t.getT2().createMessage("The MCI admin team has blacklisted a new user (discord: `%s`, minecraft: `%s`)%nWhat action would you like to take on server `%s`?"
                                                     .formatted(tag, username, t.getT1().getName()))
                                             .withComponents(ActionRow.of(BLACKLIST_CONFIRM, Util.CANCEL_BUTTON)))

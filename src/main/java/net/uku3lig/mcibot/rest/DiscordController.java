@@ -53,7 +53,7 @@ public class DiscordController {
                 .map(DiscordUser::getId)
                 .doOnNext(id -> {
                     long longId = Long.parseLong(id);
-                    Server server = new Server(guildId, minecraftId, longId, new HashSet<>());
+                    Server server = new Server(guildId, 0 /* TODO */, minecraftId, longId, new HashSet<>());
                     repository.save(server);
                 })
                 .flatMap(id -> client.getUserById(Snowflake.of(id)))

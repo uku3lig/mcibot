@@ -10,7 +10,7 @@ import discord4j.core.object.command.ApplicationCommandOption;
 import discord4j.core.object.component.ActionRow;
 import discord4j.core.object.component.Button;
 import discord4j.core.object.entity.Message;
-import discord4j.core.object.entity.User;
+import discord4j.core.object.entity.channel.MessageChannel;
 import discord4j.discordjson.json.ApplicationCommandOptionData;
 import discord4j.discordjson.json.ApplicationCommandRequest;
 import lombok.AllArgsConstructor;
@@ -98,8 +98,8 @@ public class PardonCommand implements ICommand {
                     return evt.edit().withComponents(PARDONED)
                             .then(evt.createFollowup("Pardon message sent to all owners.").withEphemeral(true))
                             .thenMany(Flux.fromIterable(servers))
-                            .flatMap(server -> client.getUserById(Snowflake.of(server.getOwnerId()))
-                                    .flatMap(User::getPrivateChannel)
+                            .flatMap(server -> client.getChannelById(Snowflake.of(server.getPromptChannel()))
+                                    .map(MessageChannel.class::cast)
                                     .flatMap(c -> c.createMessage("The MCI admin team has pardoned a user (id: `%s`)".formatted(user.getId()))
                                             .withComponents(ActionRow.of(PARDON_CONFIRM, Util.CANCEL_BUTTON)))
                                     .flatMap(msg -> getPardonListener(user, server, minecraft, msg, evt))
