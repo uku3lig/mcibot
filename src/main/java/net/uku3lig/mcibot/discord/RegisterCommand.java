@@ -2,7 +2,12 @@ package net.uku3lig.mcibot.discord;
 
 import discord4j.common.util.Snowflake;
 import discord4j.core.event.domain.interaction.ChatInputInteractionEvent;
+import discord4j.core.object.command.ApplicationCommandInteractionOption;
+import discord4j.core.object.command.ApplicationCommandInteractionOptionValue;
+import discord4j.core.object.command.ApplicationCommandOption;
 import discord4j.core.object.entity.PartialMember;
+import discord4j.core.object.entity.channel.MessageChannel;
+import discord4j.discordjson.json.ApplicationCommandOptionData;
 import discord4j.discordjson.json.ApplicationCommandRequest;
 import discord4j.rest.util.Permission;
 import lombok.RequiredArgsConstructor;
@@ -26,6 +31,12 @@ public class RegisterCommand implements ICommand {
         return ApplicationCommandRequest.builder()
                 .name("register")
                 .description("Register the current server")
+                .addOption(ApplicationCommandOptionData.builder()
+                        .name("prompt_channel")
+                        .description("the channel where blacklist prompts will be sent")
+                        .type(ApplicationCommandOption.Type.CHANNEL.getValue())
+                        .required(true)
+                        .build())
                 .build();
     }
 
@@ -35,13 +46,21 @@ public class RegisterCommand implements ICommand {
             return event.reply("Server is already registered.").withEphemeral(true);
         }
 
+        Mono<MessageChannel> channel = event.getOption("prompt_channel").flatMap(ApplicationCommandInteractionOption::getValue)
+                .map(ApplicationCommandInteractionOptionValue::asChannel)
+                .orElse(Mono.empty())
+                .filter(MessageChannel.class::isInstance)
+                .map(MessageChannel.class::cast);
+
         return event.deferReply()
                 .then(Mono.justOrEmpty(event.getInteraction().getMember()))
                 .flatMap(PartialMember::getBasePermissions)
                 .filter(p -> p.contains(Permission.MANAGE_GUILD)) // TODO ask owner for permission
                 .then(Mono.justOrEmpty(event.getInteraction().getGuildId()))
-                .doOnNext(serverId -> {
-                    Server server = new Server(serverId.asLong(), null, event.getInteraction().getUser().getId().asLong(), new HashSet<>());
+                .zipWith(channel)
+                .doOnNext(tuple -> {
+                    Server server = new Server(tuple.getT1().asLong(), tuple.getT2().getId().asLong(),
+                            null, event.getInteraction().getUser().getId().asLong(), new HashSet<>());
                     serverRepository.save(server);
                 })
                 .then(event.getInteraction().getGuild())

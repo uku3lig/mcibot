@@ -17,8 +17,9 @@ public class Server {
     @Id
     private long discordId;
 
+    private long promptChannel;
+
     // TODO
-    @Column(nullable = true)
     private UUID minecraftId;
 
     private long ownerId;
