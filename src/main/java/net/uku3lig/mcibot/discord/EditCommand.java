@@ -154,7 +154,7 @@ public class EditCommand implements ICommand {
                     }
 
                     if (user.isEmpty()) {
-                        user.getServers(serverRepository).forEach(s -> {
+                        user.getServers().forEach(s -> {
                             s.getBlacklistedUsers().remove(user);
                             serverRepository.save(s);
                         });
@@ -202,7 +202,7 @@ public class EditCommand implements ICommand {
                     }
 
                     if (user.isEmpty()) {
-                        user.getServers(serverRepository).forEach(s -> {
+                        user.getServers().forEach(s -> {
                             s.getBlacklistedUsers().remove(user);
                             serverRepository.save(s);
                         });
