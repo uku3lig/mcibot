@@ -2,7 +2,6 @@ package net.uku3lig.mcibot.model;
 
 import jakarta.persistence.*;
 import lombok.*;
-import net.uku3lig.mcibot.jpa.ServerRepository;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -36,6 +35,9 @@ public class BlacklistedUser implements Serializable {
 
     private String proofUrl;
 
+    @ManyToMany(fetch = FetchType.EAGER)
+    private List<Server> servers;
+
     public BlacklistedUser(long discordId, UUID minecraftUuid, String reason, String proofUrl) {
         this.discordAccounts = new LinkedList<>(Collections.singletonList(discordId));
         this.minecraftAccounts = new LinkedList<>(Collections.singletonList(minecraftUuid));
@@ -46,12 +48,6 @@ public class BlacklistedUser implements Serializable {
 
     public boolean isEmpty() {
         return getMinecraftAccounts().isEmpty() && getDiscordAccounts().isEmpty();
-    }
-
-    public List<Server> getServers(ServerRepository repository) {
-        return repository.findAll().stream()
-                .filter(s -> s.getBlacklistedUsers().contains(this))
-                .toList();
     }
 
     @Override
