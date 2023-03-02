@@ -130,7 +130,7 @@ public class ServerCommand implements ICommand {
                 .flatMap(ApplicationCommandInteractionOption::getValue)
                 .map(ApplicationCommandInteractionOptionValue::asString)
                 .flatMap(Util::toLong)
-                .flatMap(serverRepository::find)
+                .flatMap(serverRepository::findById)
                 .orElse(null);
 
         if (server == null)
@@ -174,7 +174,7 @@ public class ServerCommand implements ICommand {
                 .flatMap(ApplicationCommandInteractionOption::getValue)
                 .map(ApplicationCommandInteractionOptionValue::asString)
                 .flatMap(Util::toLong)
-                .flatMap(serverRepository::find);
+                .flatMap(serverRepository::findById);
 
         if (Util.isNotMciAdmin(event) || serverOptional.isEmpty()) {
             serverOptional = event.getInteraction().getGuildId()
