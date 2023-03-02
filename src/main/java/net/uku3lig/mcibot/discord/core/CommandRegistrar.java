@@ -10,6 +10,7 @@ import org.springframework.boot.ApplicationRunner;
 import org.springframework.context.annotation.Profile;
 import org.springframework.stereotype.Component;
 
+import java.util.Collections;
 import java.util.List;
 import java.util.Objects;
 
@@ -34,6 +35,8 @@ public class CommandRegistrar implements ApplicationRunner {
         applicationService.bulkOverwriteGlobalApplicationCommand(applicationId, requests)
                 .doOnNext(response -> log.info("Registered {} global commands", requests.size()))
                 .doOnError(e -> log.error("Failed to register global commands", e))
+                .thenMany(client.getGuilds())
+                .flatMap(guild -> applicationService.bulkOverwriteGuildApplicationCommand(applicationId, guild.id().asLong(), Collections.emptyList()))
                 .subscribe();
     }
 }
