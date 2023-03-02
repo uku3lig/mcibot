@@ -5,7 +5,6 @@ import discord4j.core.event.domain.interaction.ButtonInteractionEvent;
 import discord4j.core.event.domain.interaction.InteractionCreateEvent;
 import discord4j.core.object.component.ActionRow;
 import discord4j.core.object.component.Button;
-import discord4j.core.object.entity.Guild;
 import discord4j.core.object.entity.Message;
 import discord4j.core.object.entity.PartialMember;
 import discord4j.discordjson.json.ApplicationCommandOptionChoiceData;
@@ -138,10 +137,13 @@ public class Util {
 
         if (server.isEmpty()) return true;
 
-        Optional<Snowflake> ownerId = event.getInteraction().getGuild()
-                .map(Guild::getOwnerId).blockOptional();
-
-        return ownerId.isEmpty() || !event.getInteraction().getUser().getId().equals(ownerId.get());
+        return event.getInteraction().getMember()
+                .map(PartialMember::getBasePermissions)
+                .orElse(Mono.empty())
+                .map(p -> !p.contains(Permission.MANAGE_GUILD))
+                .blockOptional()
+                // in doubt, not an admin
+                .orElse(true);
     }
 
     @Data
