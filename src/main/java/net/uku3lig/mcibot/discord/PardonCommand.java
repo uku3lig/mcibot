@@ -82,8 +82,9 @@ public class PardonCommand implements ICommand {
                 .flatMap(Util::getMinecraftUsername)
                 .collectList();
 
-        return event.createFollowup("Are you sure you want to pardon this user?")
-                .withComponents(Util.CHOICE_ROW)
+        return event.deferReply()
+                .then(event.createFollowup("Are you sure you want to pardon this user?")
+                        .withComponents(Util.CHOICE_ROW))
                 .zipWith(usernames)
                 .flatMap(t -> getConfirmListener(user.get(), t.getT2(), t.getT1(), event));
     }
@@ -110,11 +111,7 @@ public class PardonCommand implements ICommand {
                                         rabbitTemplate.convertAndSend(MCIBot.EXCHANGE, String.valueOf(server.getId()), list);
                                     });
                                 } else if (server.isAutoBlacklist()) {
-                                    return client.getGuildById(Snowflake.of(server.getGuildId()))
-                                            .flatMap(guild -> Flux.fromIterable(user.getDiscordAccounts())
-                                                    .map(Snowflake::of)
-                                                    .flatMap(guild::unban)
-                                                    .then());
+                                    return pardonUser(server, user);
                                 } else {
                                     return client.getChannelById(Snowflake.of(server.getPromptChannel())).map(MessageChannel.class::cast)
                                             .switchIfEmpty(client.getGuildById(Snowflake.of(server.getGuildId()))
@@ -139,16 +136,24 @@ public class PardonCommand implements ICommand {
                     if (!Util.isButton(evt, "pardon_confirm", msg)) return Mono.empty();
                     log.info("Server owner {} pardoned User[id={}] on server {}", evt.getInteraction().getUser().getTag(), user.getId(), guild.getName());
 
-                    server.getBlacklistedUsers().remove(user);
-                    serverRepository.save(server);
-
                     return evt.edit().withComponents(PARDONED)
-                            .then(Flux.fromIterable(user.getDiscordAccounts()).map(Snowflake::of).flatMap(guild::unban).then())
+                            .then(pardonUser(server, user))
                             .then(evt.createFollowup("User has been pardoned.").withEphemeral(true))
                             .then();
                 })
                 .timeout(Duration.ofDays(7))
                 .onErrorResume(TimeoutException.class, t -> msg.edit().withComponents(Util.CANCELLED).then())
                 .next();
+    }
+
+    private Mono<Void> pardonUser(Server server, BlacklistedUser user) {
+        server.getBlacklistedUsers().remove(user);
+        serverRepository.save(server);
+
+        return client.getGuildById(Snowflake.of(server.getGuildId()))
+                .flatMap(guild -> Flux.fromIterable(user.getDiscordAccounts())
+                        .map(Snowflake::of)
+                        .flatMap(guild::unban)
+                        .then());
     }
 }

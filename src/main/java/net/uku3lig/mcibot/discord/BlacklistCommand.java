@@ -141,11 +141,7 @@ public class BlacklistCommand implements ICommand {
                                         rabbitTemplate.convertAndSend(MCIBot.EXCHANGE, String.valueOf(server.getId()), mu);
                                     });
                                 } else if (server.isAutoBlacklist()) {
-                                    return client.getGuildById(Snowflake.of(server.getGuildId()))
-                                            .flatMap(guild -> Flux.fromIterable(bu.getDiscordAccounts())
-                                                    .map(Snowflake::of)
-                                                    .flatMap(s -> guild.ban(s).withReason(bu.getReason()))
-                                                    .then());
+                                    return blacklistUser(server, bu);
                                 } else {
                                     return client.getChannelById(Snowflake.of(server.getPromptChannel())).map(MessageChannel.class::cast)
                                             .switchIfEmpty(client.getGuildById(Snowflake.of(server.getGuildId()))
@@ -170,18 +166,23 @@ public class BlacklistCommand implements ICommand {
                     if (!Util.isButton(evt, "blacklist_confirm", msg)) return Mono.empty();
                     log.info("Server owner {} blacklisted {} on server {}", evt.getInteraction().getUser().getTag(), username, guild.getName());
 
-                    server.getBlacklistedUsers().add(user);
-                    serverRepository.save(server);
-
                     return evt.edit().withComponents(BLACKLISTED)
-                            .then(Flux.fromIterable(user.getDiscordAccounts())
-                                    .map(Snowflake::of)
-                                    .flatMap(s -> guild.ban(s).withReason(user.getReason()))
-                                    .then())
+                            .then(blacklistUser(server, user))
                             .then(evt.createFollowup("User has been banned.").withEphemeral(true))
                             .then();
                 }).timeout(Duration.ofDays(7))
                 .onErrorResume(TimeoutException.class, t -> msg.edit().withComponents(Util.CANCELLED).then())
                 .next();
+    }
+
+    private Mono<Void> blacklistUser(Server server, BlacklistedUser user) {
+        server.getBlacklistedUsers().add(user);
+        serverRepository.save(server);
+
+        return client.getGuildById(Snowflake.of(server.getGuildId()))
+                .flatMap(guild -> Flux.fromIterable(user.getDiscordAccounts())
+                        .map(Snowflake::of)
+                        .flatMap(s -> guild.ban(s).withReason(user.getReason()))
+                        .then());
     }
 }
