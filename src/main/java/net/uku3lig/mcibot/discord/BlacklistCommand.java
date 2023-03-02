@@ -182,7 +182,8 @@ public class BlacklistCommand implements ICommand {
         return client.getGuildById(Snowflake.of(server.getGuildId()))
                 .flatMap(guild -> Flux.fromIterable(user.getDiscordAccounts())
                         .map(Snowflake::of)
-                        .flatMap(s -> guild.ban(s).withReason(user.getReason()))
+                        .flatMap(s -> guild.ban(s).withReason(user.getReason())
+                                .onErrorResume(t -> Mono.fromRunnable(() -> log.error("Failed to ban", t))))
                         .then());
     }
 }
