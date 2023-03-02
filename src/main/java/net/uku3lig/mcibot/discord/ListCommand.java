@@ -101,8 +101,7 @@ public class ListCommand implements ICommand {
                 Mono<String> discord = Flux.fromIterable(bu.get().getDiscordAccounts())
                         .map(Snowflake::of)
                         .flatMap(client::getUserById)
-                        .map(User::getTag)
-                        .map("`%s`"::formatted)
+                        .map(u -> "`%s` (`%s`)".formatted(u.getTag(), u.getId().asLong()))
                         .collectList()
                         .map(l -> l.isEmpty() ? "None" : String.join("\n", l));
 
