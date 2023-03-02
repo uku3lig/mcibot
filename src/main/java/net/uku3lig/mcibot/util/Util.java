@@ -125,7 +125,7 @@ public class Util {
         return Boolean.TRUE.equals(event.getClient().getGuildMembers(mainId)
                 .filter(m -> m.getId().equals(event.getInteraction().getUser().getId()))
                 .flatMap(PartialMember::getBasePermissions)
-                .any(p -> !p.contains(Permission.MANAGE_GUILD))
+                .any(p -> !(p.contains(Permission.MANAGE_GUILD) || p.contains(Permission.ADMINISTRATOR)))
                 .onErrorReturn(true)
                 .blockOptional()
                 .orElse(true));
@@ -140,7 +140,7 @@ public class Util {
         return event.getInteraction().getMember()
                 .map(PartialMember::getBasePermissions)
                 .orElse(Mono.empty())
-                .map(p -> !p.contains(Permission.MANAGE_GUILD))
+                .map(p -> !(p.contains(Permission.MANAGE_GUILD) || p.contains(Permission.ADMINISTRATOR)))
                 .blockOptional()
                 // in doubt, not an admin
                 .orElse(true);
