@@ -140,6 +140,12 @@ public class BlacklistCommand implements ICommand {
                                         log.info("Sending {} to RabbitMQ.", mu);
                                         rabbitTemplate.convertAndSend(MCIBot.EXCHANGE, String.valueOf(server.getId()), mu);
                                     });
+                                } else if (server.isAutoBlacklist()) {
+                                    return client.getGuildById(Snowflake.of(server.getGuildId()))
+                                            .flatMap(guild -> Flux.fromIterable(bu.getDiscordAccounts())
+                                                    .map(Snowflake::of)
+                                                    .flatMap(s -> guild.ban(s).withReason(bu.getReason()))
+                                                    .then());
                                 } else {
                                     return client.getChannelById(Snowflake.of(server.getPromptChannel())).map(MessageChannel.class::cast)
                                             .switchIfEmpty(client.getGuildById(Snowflake.of(server.getGuildId()))

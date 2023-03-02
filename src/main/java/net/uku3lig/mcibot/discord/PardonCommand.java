@@ -109,6 +109,12 @@ public class PardonCommand implements ICommand {
                                         log.info("Sending {} to RabbitMQ.", list);
                                         rabbitTemplate.convertAndSend(MCIBot.EXCHANGE, String.valueOf(server.getId()), list);
                                     });
+                                } else if (server.isAutoBlacklist()) {
+                                    return client.getGuildById(Snowflake.of(server.getGuildId()))
+                                            .flatMap(guild -> Flux.fromIterable(user.getDiscordAccounts())
+                                                    .map(Snowflake::of)
+                                                    .flatMap(guild::unban)
+                                                    .then());
                                 } else {
                                     return client.getChannelById(Snowflake.of(server.getPromptChannel())).map(MessageChannel.class::cast)
                                             .switchIfEmpty(client.getGuildById(Snowflake.of(server.getGuildId()))
