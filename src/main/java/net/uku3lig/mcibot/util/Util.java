@@ -134,7 +134,7 @@ public class Util {
 
     public static boolean isNotServerOwner(InteractionCreateEvent event, ServerRepository serverRepository) {
         Optional<Server> server = event.getInteraction().getGuildId().map(Snowflake::asLong)
-                .flatMap(serverRepository::findByDiscordId);
+                .flatMap(serverRepository::findByGuildId);
 
         if (server.isEmpty()) return true;
 

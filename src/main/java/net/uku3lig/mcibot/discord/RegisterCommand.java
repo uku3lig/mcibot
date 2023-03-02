@@ -40,7 +40,7 @@ public class RegisterCommand implements ICommand {
 
     @Override
     public Mono<Void> onInteraction(ChatInputInteractionEvent event) {
-        if (event.getInteraction().getGuildId().map(Snowflake::asLong).flatMap(serverRepository::findByDiscordId).isPresent()) {
+        if (event.getInteraction().getGuildId().map(Snowflake::asLong).flatMap(serverRepository::findByGuildId).isPresent()) {
             return event.reply("Server is already registered.").withEphemeral(true);
         }
 

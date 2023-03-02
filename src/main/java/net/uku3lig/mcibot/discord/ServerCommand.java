@@ -130,7 +130,7 @@ public class ServerCommand implements ICommand {
                 .flatMap(ApplicationCommandInteractionOption::getValue)
                 .map(ApplicationCommandInteractionOptionValue::asString)
                 .flatMap(Util::toLong)
-                .flatMap(serverRepository::findByDiscordId)
+                .flatMap(serverRepository::find)
                 .orElse(null);
 
         if (server == null)
@@ -174,12 +174,12 @@ public class ServerCommand implements ICommand {
                 .flatMap(ApplicationCommandInteractionOption::getValue)
                 .map(ApplicationCommandInteractionOptionValue::asString)
                 .flatMap(Util::toLong)
-                .flatMap(serverRepository::findByDiscordId);
+                .flatMap(serverRepository::find);
 
         if (Util.isNotMciAdmin(event) || serverOptional.isEmpty()) {
             serverOptional = event.getInteraction().getGuildId()
                     .map(Snowflake::asLong)
-                    .flatMap(serverRepository::findByDiscordId);
+                    .flatMap(serverRepository::findByGuildId);
         }
 
         final Server server = serverOptional.orElse(null);
@@ -221,7 +221,7 @@ public class ServerCommand implements ICommand {
     public Mono<Void> manageServerBlacklists(ChatInputInteractionEvent event, ApplicationCommandInteractionOption subcommand) {
         Server server = event.getInteraction().getGuildId()
                 .map(Snowflake::asLong)
-                .flatMap(serverRepository::findByDiscordId)
+                .flatMap(serverRepository::findByGuildId)
                 .orElse(null);
 
         if (server == null) return event.reply("your server is not allowed to do that").withEphemeral(true);

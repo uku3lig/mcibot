@@ -8,7 +8,8 @@ import java.util.Optional;
 
 public interface ServerRepository extends Repository<Server, Long> {
     List<Server> findAll();
-    Optional<Server> findByDiscordId(long id);
+    Optional<Server> find(long id);
+    Optional<Server> findByGuildId(long id);
 
     void save(Server server);
     void delete(Server server);
