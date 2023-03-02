@@ -36,7 +36,7 @@ public class BlacklistedUser implements Serializable {
     private String proofUrl;
 
     @ManyToMany(fetch = FetchType.EAGER)
-    private List<Server> servers;
+    private transient List<Server> servers;
 
     public BlacklistedUser(long discordId, UUID minecraftUuid, String reason, String proofUrl) {
         this.discordAccounts = new LinkedList<>(Collections.singletonList(discordId));
@@ -44,6 +44,10 @@ public class BlacklistedUser implements Serializable {
         this.reason = reason;
         this.proofUrl = proofUrl;
         this.global = true;
+    }
+
+    public List<Server> getServers(ServerType type) {
+        return getServers().stream().filter(s -> s.getType() == type).toList();
     }
 
     public boolean isEmpty() {

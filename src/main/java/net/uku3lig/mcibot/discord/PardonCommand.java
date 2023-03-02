@@ -9,6 +9,7 @@ import discord4j.core.object.command.ApplicationCommandInteractionOptionValue;
 import discord4j.core.object.command.ApplicationCommandOption;
 import discord4j.core.object.component.ActionRow;
 import discord4j.core.object.component.Button;
+import discord4j.core.object.entity.Guild;
 import discord4j.core.object.entity.Message;
 import discord4j.core.object.entity.channel.MessageChannel;
 import discord4j.discordjson.json.ApplicationCommandOptionData;
@@ -22,6 +23,7 @@ import net.uku3lig.mcibot.jpa.UserRepository;
 import net.uku3lig.mcibot.model.BlacklistedUser;
 import net.uku3lig.mcibot.model.MinecraftUserList;
 import net.uku3lig.mcibot.model.Server;
+import net.uku3lig.mcibot.model.ServerType;
 import net.uku3lig.mcibot.util.Util;
 import org.springframework.amqp.rabbit.core.RabbitTemplate;
 import org.springframework.stereotype.Service;
@@ -39,6 +41,8 @@ import java.util.concurrent.TimeoutException;
 public class PardonCommand implements ICommand {
     private static final Button PARDON_CONFIRM = Button.primary("pardon_confirm", "Pardon");
     private static final ActionRow PARDONED = ActionRow.of(Button.secondary("pardon", "Pardoned").disabled());
+
+    private static final String PARDON_DM = "The MCI admin team has pardoned a user (id: `%s`)%nWhat action would you like to take on server `%s`?";
 
     private GatewayDiscordClient client;
     private UserRepository userRepository;
@@ -93,42 +97,44 @@ public class PardonCommand implements ICommand {
                     log.info("New globally pardoned user: id={}, by={}", user.getId(), evt.getInteraction().getUser().getTag());
                     user.setGlobal(false);
                     userRepository.save(user);
-                    List<Server> servers = serverRepository.findAll().stream().filter(s -> s.getBlacklistedUsers().contains(user)).toList();
 
                     return evt.edit().withComponents(PARDONED)
                             .then(evt.createFollowup("Pardon message sent to all owners.").withEphemeral(true))
-                            .thenMany(Flux.fromIterable(servers))
-                            .flatMap(server -> client.getChannelById(Snowflake.of(server.getPromptChannel()))
-                                    .map(MessageChannel.class::cast)
-                                    .flatMap(c -> c.createMessage("The MCI admin team has pardoned a user (id: `%s`)".formatted(user.getId()))
-                                            .withComponents(ActionRow.of(PARDON_CONFIRM, Util.CANCEL_BUTTON)))
-                                    .flatMap(msg -> getPardonListener(user, server, minecraft, msg, evt))
-                                    .doOnError(t -> log.error("Could not send pardon message to owner.", t))
-                            )
+                            .thenMany(Flux.fromIterable(user.getServers()))
+                            .flatMap(server -> {
+                                if (server.getType() == ServerType.MINECRAFT) {
+                                    return Mono.fromRunnable(() -> {
+                                        final MinecraftUserList list = new MinecraftUserList(minecraft, null, true);
+                                        log.info("Sending {} to RabbitMQ.", list);
+                                        rabbitTemplate.convertAndSend(MCIBot.EXCHANGE, String.valueOf(server.getId()), list);
+                                    });
+                                } else {
+                                    return client.getGuildById(Snowflake.of(server.getGuildId()))
+                                            .zipWith(client.getChannelById(Snowflake.of(server.getPromptChannel()))
+                                                    .map(MessageChannel.class::cast))
+                                            .flatMap(tuple -> tuple.getT2().createMessage(PARDON_DM.formatted(user.getId(), tuple.getT1().getName()))
+                                                    .withComponents(ActionRow.of(PARDON_CONFIRM, Util.CANCEL_BUTTON))
+                                                    .flatMap(msg -> getPardonListener(user, server, tuple.getT1(), msg, evt)))
+                                            .doOnError(t -> log.error("Could not send pardon message to owner.", t));
+                                }
+                            })
                             .then();
                 }).timeout(Duration.ofMinutes(5))
                 .onErrorResume(TimeoutException.class, t -> other.editReply().withComponents(Util.CANCELLED).then())
                 .next();
     }
 
-    private Mono<Void> getPardonListener(BlacklistedUser user, Server server, List<String> minecraft, Message msg, ButtonInteractionEvent other) {
+    private Mono<Void> getPardonListener(BlacklistedUser user, Server server, Guild guild, Message msg, ButtonInteractionEvent other) {
         return client.on(ButtonInteractionEvent.class, evt -> {
                     if (Util.isCancelButton(evt, msg)) return Util.onCancel(evt, other);
                     if (!Util.isButton(evt, "pardon_confirm", msg)) return Mono.empty();
-                    log.info("Server owner {} pardoned User[id={}] on server {}", evt.getInteraction().getUser().getTag(), user.getId(), server.getMinecraftId());
-
-                    if (server.getMinecraftId() != null) {
-                        final MinecraftUserList list = new MinecraftUserList(minecraft, null, true);
-                        log.info("Sending {} to RabbitMQ.", list);
-                        rabbitTemplate.convertAndSend(MCIBot.EXCHANGE, server.getMinecraftId().toString(), list);
-                    }
+                    log.info("Server owner {} pardoned User[id={}] on server {}", evt.getInteraction().getUser().getTag(), user.getId(), guild.getName());
 
                     server.getBlacklistedUsers().remove(user);
                     serverRepository.save(server);
 
                     return evt.edit().withComponents(PARDONED)
-                            .then(client.getGuildById(Snowflake.of(server.getDiscordId())))
-                            .flatMap(g -> Flux.fromIterable(user.getDiscordAccounts()).map(Snowflake::of).flatMap(g::unban).then())
+                            .then(Flux.fromIterable(user.getDiscordAccounts()).map(Snowflake::of).flatMap(guild::unban).then())
                             .then(evt.createFollowup("User has been pardoned.").withEphemeral(true))
                             .then();
                 })

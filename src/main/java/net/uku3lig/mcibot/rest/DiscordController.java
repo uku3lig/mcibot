@@ -19,7 +19,6 @@ import org.springframework.web.servlet.ModelAndView;
 
 import java.nio.charset.StandardCharsets;
 import java.util.Base64;
-import java.util.HashSet;
 import java.util.UUID;
 
 @RestController
@@ -47,15 +46,13 @@ public class DiscordController {
         UUID minecraftId = UUID.fromString(decodedState[0]);
         String minecraftName = decodedState[1];
 
+        Server server = Server.fromGuildId(guildId);
+        repository.save(server);
+
         discord.getAccessToken(code, config.getRedirectUri())
                 .map(TokenResponse::getAccessToken)
                 .flatMap(discord::getUser)
                 .map(DiscordUser::getId)
-                .doOnNext(id -> {
-                    long longId = Long.parseLong(id);
-                    Server server = new Server(guildId, 0 /* TODO */, minecraftId, longId, new HashSet<>());
-                    repository.save(server);
-                })
                 .flatMap(id -> client.getUserById(Snowflake.of(id)))
                 .doOnNext(u -> log.info("User {} linked discord server {} to minecraft server {}", u.getTag(), guildId, minecraftId))
                 .flatMap(User::getPrivateChannel)
