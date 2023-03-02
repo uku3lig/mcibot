@@ -78,21 +78,25 @@ public class ConfigCommand implements ICommand {
                     .filter(MessageChannel.class::isInstance)
                     .flatMap(c -> {
                         server.setPromptChannel(c.getId().asLong());
-                        return event.reply("Edited prompt channel to <#%s>".formatted(c.getId().asLong()));
+                        serverRepository.save(server);
+                        return event.createFollowup("Edited prompt channel to <#%s>".formatted(c.getId().asLong()));
                     })
-                    .switchIfEmpty(event.reply("Unknown or invalid channel.").withEphemeral(true));
+                    .switchIfEmpty(event.createFollowup("Unknown or invalid channel.").withEphemeral(true))
+                    .then();
 
             case "auto_blacklist" -> Mono.justOrEmpty(value)
                     .map(ApplicationCommandInteractionOptionValue::asBoolean)
                     .flatMap(bool -> {
                         server.setAutoBlacklist(bool);
-                        return event.reply((Boolean.TRUE.equals(bool) ? "Enabled" : "Disabled") + " auto blacklist.");
+                        serverRepository.save(server);
+                        return event.createFollowup((Boolean.TRUE.equals(bool) ? "Enabled" : "Disabled") + " auto blacklist.");
                     })
-                    .switchIfEmpty(event.reply("Invalid value").withEphemeral(true));
+                    .switchIfEmpty(event.createFollowup("Invalid value").withEphemeral(true))
+                    .then();
 
-            default -> event.reply("Unknown subcommand.").withEphemeral(true);
+            default -> event.createFollowup("Unknown subcommand.").withEphemeral(true).then();
         };
 
-        return action.doOnNext(v -> serverRepository.save(server));
+        return event.deferReply().then(action);
     }
 }
