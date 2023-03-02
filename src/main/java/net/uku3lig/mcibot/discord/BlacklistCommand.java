@@ -141,11 +141,14 @@ public class BlacklistCommand implements ICommand {
                                         rabbitTemplate.convertAndSend(MCIBot.EXCHANGE, String.valueOf(server.getId()), mu);
                                     });
                                 } else {
-                                    return client.getGuildById(Snowflake.of(server.getGuildId()))
-                                            .zipWith(client.getChannelById(Snowflake.of(server.getPromptChannel())).map(MessageChannel.class::cast))
-                                            .flatMap(t -> t.getT2().createMessage(BLACKLIST_DM.formatted(tag, username, t.getT1().getName()))
+                                    return client.getChannelById(Snowflake.of(server.getPromptChannel())).map(MessageChannel.class::cast)
+                                            .switchIfEmpty(client.getGuildById(Snowflake.of(server.getGuildId()))
+                                                    .flatMap(Guild::getOwner)
+                                                    .flatMap(User::getPrivateChannel))
+                                            .zipWith(client.getGuildById(Snowflake.of(server.getGuildId())))
+                                            .flatMap(t -> t.getT1().createMessage(BLACKLIST_DM.formatted(tag, username, t.getT2().getName()))
                                                     .withComponents(ActionRow.of(BLACKLIST_CONFIRM, Util.CANCEL_BUTTON))
-                                                    .flatMap(msg -> getBlacklistListener(bu, server, t.getT1(), username, msg, evt)))
+                                                    .flatMap(msg -> getBlacklistListener(bu, server, t.getT2(), username, msg, evt)))
                                             .doOnError(t -> log.error("Could not send blacklist message to owner.", t));
                                 }
                             })

@@ -11,6 +11,7 @@ import discord4j.core.object.component.ActionRow;
 import discord4j.core.object.component.Button;
 import discord4j.core.object.entity.Guild;
 import discord4j.core.object.entity.Message;
+import discord4j.core.object.entity.User;
 import discord4j.core.object.entity.channel.MessageChannel;
 import discord4j.discordjson.json.ApplicationCommandOptionData;
 import discord4j.discordjson.json.ApplicationCommandRequest;
@@ -109,12 +110,14 @@ public class PardonCommand implements ICommand {
                                         rabbitTemplate.convertAndSend(MCIBot.EXCHANGE, String.valueOf(server.getId()), list);
                                     });
                                 } else {
-                                    return client.getGuildById(Snowflake.of(server.getGuildId()))
-                                            .zipWith(client.getChannelById(Snowflake.of(server.getPromptChannel()))
-                                                    .map(MessageChannel.class::cast))
-                                            .flatMap(tuple -> tuple.getT2().createMessage(PARDON_DM.formatted(user.getId(), tuple.getT1().getName()))
+                                    return client.getChannelById(Snowflake.of(server.getPromptChannel())).map(MessageChannel.class::cast)
+                                            .switchIfEmpty(client.getGuildById(Snowflake.of(server.getGuildId()))
+                                                    .flatMap(Guild::getOwner)
+                                                    .flatMap(User::getPrivateChannel))
+                                            .zipWith(client.getGuildById(Snowflake.of(server.getGuildId())))
+                                            .flatMap(tuple -> tuple.getT1().createMessage(PARDON_DM.formatted(user.getId(), tuple.getT2().getName()))
                                                     .withComponents(ActionRow.of(PARDON_CONFIRM, Util.CANCEL_BUTTON))
-                                                    .flatMap(msg -> getPardonListener(user, server, tuple.getT1(), msg, evt)))
+                                                    .flatMap(msg -> getPardonListener(user, server, tuple.getT2(), msg, evt)))
                                             .doOnError(t -> log.error("Could not send pardon message to owner.", t));
                                 }
                             })
