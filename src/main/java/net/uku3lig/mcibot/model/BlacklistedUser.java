@@ -46,6 +46,10 @@ public class BlacklistedUser implements Serializable {
         this.global = true;
     }
 
+    public List<Server> getServers() {
+        return servers == null ? new ArrayList<>() : servers;
+    }
+
     public List<Server> getServers(ServerType type) {
         return getServers().stream().filter(s -> s.getType() == type).toList();
     }
