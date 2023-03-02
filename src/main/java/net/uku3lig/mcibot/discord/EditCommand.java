@@ -22,6 +22,7 @@ import net.uku3lig.mcibot.jpa.UserRepository;
 import net.uku3lig.mcibot.model.BlacklistedUser;
 import net.uku3lig.mcibot.model.MinecraftUserList;
 import net.uku3lig.mcibot.model.Server;
+import net.uku3lig.mcibot.model.ServerType;
 import net.uku3lig.mcibot.util.Util;
 import org.springframework.amqp.rabbit.core.RabbitTemplate;
 import org.springframework.stereotype.Service;
@@ -81,7 +82,8 @@ public class EditCommand implements ICommand {
 
     @Override
     public Mono<Void> onInteraction(ChatInputInteractionEvent event) {
-        if (Util.isNotMciAdmin(event)) return event.reply("You need to be an admin to use this command.").withEphemeral(true);
+        if (Util.isNotMciAdmin(event))
+            return event.reply("You need to be an admin to use this command.").withEphemeral(true);
 
         final BlacklistedUser user = event.getOption("id")
                 .flatMap(ApplicationCommandInteractionOption::getValue)
@@ -167,10 +169,7 @@ public class EditCommand implements ICommand {
                             .thenMany(Flux.fromIterable(serverRepository.findAll()))
                             .filter(s -> s.getBlacklistedUsers().contains(user))
                             .zipWith(list)
-                            .flatMap(t -> {
-                                if (t.getT1().getMinecraftId() == null) return Mono.fromRunnable(() -> {});
-                                return Mono.fromRunnable(() -> rabbitTemplate.convertAndSend(MCIBot.EXCHANGE, t.getT1().getMinecraftId().toString(), t.getT2()));
-                            })
+                            .flatMap(t -> Mono.fromRunnable(() -> rabbitTemplate.convertAndSend(MCIBot.EXCHANGE, String.valueOf(t.getT1().getId()), t.getT2())))
                             .then(evt.createFollowup("Successfully edited user with UUID `%s`.".formatted(uuid)).withEphemeral(true))
                             .then();
                 }).timeout(Duration.ofMinutes(5))
@@ -186,9 +185,8 @@ public class EditCommand implements ICommand {
                         return evt.reply("You can't confirm this pardon.").withEphemeral(true);
 
                     log.info("{} edited user {}: {} {}", other.getInteraction().getUser().getTag(), user.getId(), operation, discordUser.getTag());
-                    Flux<Guild> guilds = Flux.fromIterable(serverRepository.findAll())
-                            .filter(s -> s.getBlacklistedUsers().contains(user))
-                            .map(Server::getDiscordId)
+                    Flux<Guild> guilds = Flux.fromIterable(user.getServers(ServerType.DISCORD))
+                            .map(Server::getGuildId)
                             .map(Snowflake::of)
                             .flatMap(client::getGuildById);
 

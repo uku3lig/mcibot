@@ -18,8 +18,6 @@ import net.uku3lig.mcibot.model.Server;
 import org.springframework.stereotype.Service;
 import reactor.core.publisher.Mono;
 
-import java.util.HashSet;
-
 @Service
 @Slf4j
 @RequiredArgsConstructor
@@ -55,12 +53,13 @@ public class RegisterCommand implements ICommand {
         return event.deferReply()
                 .then(Mono.justOrEmpty(event.getInteraction().getMember()))
                 .flatMap(PartialMember::getBasePermissions)
-                .filter(p -> p.contains(Permission.MANAGE_GUILD)) // TODO ask owner for permission
+                .filter(p -> p.contains(Permission.MANAGE_GUILD))
                 .then(Mono.justOrEmpty(event.getInteraction().getGuildId()))
                 .zipWith(channel)
                 .doOnNext(tuple -> {
-                    Server server = new Server(tuple.getT1().asLong(), tuple.getT2().getId().asLong(),
-                            null, event.getInteraction().getUser().getId().asLong(), new HashSet<>());
+                    // t1 is guildId // t2 is prompt channel //
+                    Server server = Server.fromGuildId(tuple.getT1().asLong());
+                    server.setPromptChannel(tuple.getT2().getId().asLong());
                     serverRepository.save(server);
                 })
                 .then(event.getInteraction().getGuild())
