@@ -47,7 +47,6 @@ public class BlacklistCommand implements ICommand {
     private static final Button BLACKLIST_CONFIRM = Button.primary("blacklist_confirm", "Blacklist");
     private static final ActionRow BLACKLISTED = ActionRow.of(Button.secondary("blacklisted", "Blacklisted").disabled());
 
-    private static final String BLACKLIST_DM = "The MCI admin team has blacklisted a new user (discord: `%s`, minecraft: `%s`)%nWhat action would you like to take on server `%s`?";
     private static final String BLACKLIST_MSG = "Are you sure you want to blacklist this user? (discord: `%s`, minecraft: `%s`)";
 
     private final GatewayDiscordClient client;
@@ -148,7 +147,7 @@ public class BlacklistCommand implements ICommand {
                                                     .flatMap(Guild::getOwner)
                                                     .flatMap(User::getPrivateChannel))
                                             .zipWith(client.getGuildById(Snowflake.of(server.getGuildId())))
-                                            .flatMap(t -> t.getT1().createMessage(BLACKLIST_DM.formatted(tag, username, t.getT2().getName()))
+                                            .flatMap(t -> t.getT1().createMessage(getBlacklistMessage(tag, username, bu, t.getT2().getName()))
                                                     .withComponents(ActionRow.of(BLACKLIST_CONFIRM, Util.CANCEL_BUTTON))
                                                     .flatMap(msg -> getBlacklistListener(bu, server, t.getT2(), username, msg, evt)))
                                             .doOnError(t -> log.error("Could not send blacklist message to owner.", t));
@@ -185,5 +184,19 @@ public class BlacklistCommand implements ICommand {
                         .flatMap(s -> guild.ban(s).withReason(user.getReason())
                                 .onErrorResume(t -> Mono.fromRunnable(() -> log.error("Failed to ban", t))))
                         .then());
+    }
+
+    private String getBlacklistMessage(String tag, String username, BlacklistedUser user, String guildName) {
+        StringBuilder builder = new StringBuilder("The MCI admin team has blacklisted a new user (discord: `%s`, minecraft: `%s`)".formatted(tag, username));
+
+        if (user.getReason() != null) {
+            builder.append(" for the following reason: `%s`".formatted(user.getReason()));
+        }
+
+        if (user.getProofUrl() != null) {
+            builder.append(" with the following proof: %s".formatted(user.getProofUrl()));
+        }
+
+        return builder.append("%nWhat action would you like to take on server `%s`?".formatted(guildName)).toString();
     }
 }
