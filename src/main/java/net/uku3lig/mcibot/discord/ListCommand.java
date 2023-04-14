@@ -25,8 +25,7 @@ import reactor.core.publisher.Mono;
 import java.util.List;
 import java.util.Optional;
 
-import static discord4j.core.object.command.ApplicationCommandOption.Type.INTEGER;
-import static discord4j.core.object.command.ApplicationCommandOption.Type.SUB_COMMAND;
+import static discord4j.core.object.command.ApplicationCommandOption.Type.*;
 
 @Service
 @AllArgsConstructor
@@ -54,7 +53,7 @@ public class ListCommand implements ICommand {
                         .addOption(ApplicationCommandOptionData.builder()
                                 .name("id")
                                 .description("The user's ID")
-                                .type(INTEGER.getValue())
+                                .type(STRING.getValue())
                                 .required(true)
                                 .build())
                         .build())
@@ -93,8 +92,9 @@ public class ListCommand implements ICommand {
             case "info" -> {
                 Optional<BlacklistedUser> bu = subcommand.getOption("id")
                         .flatMap(ApplicationCommandInteractionOption::getValue)
-                        .map(ApplicationCommandInteractionOptionValue::asLong)
-                        .flatMap(userRepository::findById);
+                        .map(ApplicationCommandInteractionOptionValue::asString)
+                        .flatMap(s -> Util.getUUID(s).flatMap(userRepository::findByMinecraftAccountsContaining)
+                                .or(() -> Util.toLong(s).flatMap(userRepository::findByDiscordAccountsContaining)));
 
                 if (bu.isEmpty()) yield event.reply("Invalid ID.").withEphemeral(true);
 
