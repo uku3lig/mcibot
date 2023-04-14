@@ -161,7 +161,7 @@ public class ServerCommand implements ICommand {
                 .map(l -> EmbedCreateSpec.builder()
                         .title("Registered servers")
                         .fields(l)
-                        .footer("Do /list local <id> to show info about a specific server", null)
+                        .footer("Do /server info <id> to show info about a specific server", null)
                         .build()
                 )
                 .flatMap(e -> event.createFollowup().withEmbeds(e))

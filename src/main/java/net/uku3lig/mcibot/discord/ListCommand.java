@@ -84,7 +84,7 @@ public class ListCommand implements ICommand {
                         .map(l -> EmbedCreateSpec.builder()
                                 .title("Blacklisted users")
                                 .fields(l)
-                                .footer("Do /server info <id> to show info about a specific user", null)
+                                .footer("Do /list info <id> to show info about a specific user", null)
                                 .build()
                         )
                         .flatMap(e -> event.createFollowup().withEmbeds(e));
