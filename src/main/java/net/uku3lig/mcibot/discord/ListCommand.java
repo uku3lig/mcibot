@@ -106,8 +106,8 @@ public class ListCommand implements ICommand {
                         .map(l -> l.isEmpty() ? "None" : String.join("\n", l));
 
                 Mono<String> minecraft = Flux.fromIterable(bu.get().getMinecraftAccounts())
-                        .flatMap(Util::getMinecraftUsername)
-                        .map("`%s`"::formatted)
+                        .flatMap(uuid -> Mono.zip(Mono.just(uuid), Util.getMinecraftUsername(uuid)))
+                        .map(t -> "`%s` (`%s`)".formatted(t.getT2(), t.getT1()))
                         .collectList()
                         .map(l -> l.isEmpty() ? "None" : String.join("\n", l));
 
