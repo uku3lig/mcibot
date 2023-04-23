@@ -29,6 +29,7 @@ import reactor.core.publisher.Mono;
 
 import java.time.Duration;
 import java.util.Collections;
+import java.util.Optional;
 import java.util.UUID;
 import java.util.concurrent.TimeoutException;
 
@@ -75,6 +76,18 @@ public class EditCommand implements ICommand {
                         .type(STRING.getValue())
                         .required(false)
                         .build())
+                .addOption(ApplicationCommandOptionData.builder()
+                        .name("reason")
+                        .description("The reason to edit (leave empty to remove)")
+                        .type(STRING.getValue())
+                        .required(false)
+                        .build())
+                .addOption(ApplicationCommandOptionData.builder()
+                        .name("proof")
+                        .description("The proof to edit (leave empty to remove)")
+                        .type(STRING.getValue())
+                        .required(false)
+                        .build())
                 .build();
     }
 
@@ -108,6 +121,14 @@ public class EditCommand implements ICommand {
                 .flatMap(ApplicationCommandInteractionOption::getValue)
                 .map(ApplicationCommandInteractionOptionValue::asUser).orElse(null);
 
+        Optional<String> reason = event.getOption("reason")
+                .flatMap(ApplicationCommandInteractionOption::getValue)
+                .map(ApplicationCommandInteractionOptionValue::asString);
+
+        Optional<String> proof = event.getOption("proof")
+                .flatMap(ApplicationCommandInteractionOption::getValue)
+                .map(ApplicationCommandInteractionOptionValue::asString);
+
         if (minecraft != null) {
             return event.deferReply().then(minecraft)
                     .flatMap(uuid -> {
@@ -130,8 +151,26 @@ public class EditCommand implements ICommand {
                                 .withComponents(Util.CHOICE_ROW)
                                 .flatMap(m -> getDiscordConfirmListener(user, operation, u, m, event));
                     });
+        } else if (reason.isPresent()) {
+            if (reason.get().isEmpty() || operation.equals("remove")) {
+                user.setReason(null);
+            } else {
+                user.setReason(reason.get());
+            }
+            userRepository.save(user);
+
+            return event.reply("Edited user %s's reason.".formatted(user.getId())).withEphemeral(true);
+        } else if (proof.isPresent()) {
+            if (proof.get().isEmpty() || operation.equals("remove")) {
+                user.setProofUrl(null);
+            } else {
+                user.setProofUrl(proof.get());
+            }
+            userRepository.save(user);
+
+            return event.reply("Edited user %s's proof.".formatted(user.getId())).withEphemeral(true);
         } else {
-            return event.reply("You need to specify either a Minecraft UUID or a Discord ID.").withEphemeral(true);
+            return event.reply("You need to specify something to edit.").withEphemeral(true);
         }
     }
 
