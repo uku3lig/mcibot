@@ -1,9 +1,16 @@
 package net.uku3lig.mcibot.model;
 
+import discord4j.common.util.Snowflake;
+import discord4j.core.GatewayDiscordClient;
+import discord4j.core.spec.EmbedCreateSpec;
 import jakarta.persistence.*;
 import lombok.*;
+import net.uku3lig.mcibot.util.Displayable;
+import net.uku3lig.mcibot.util.Util;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import reactor.core.publisher.Flux;
+import reactor.core.publisher.Mono;
 
 import java.io.Serializable;
 import java.util.*;
@@ -16,7 +23,7 @@ import java.util.*;
 @NonNull
 @Entity
 @Service
-public class BlacklistedUser implements Serializable {
+public class BlacklistedUser implements Serializable, Displayable {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private long id;
@@ -68,5 +75,34 @@ public class BlacklistedUser implements Serializable {
     @Override
     public int hashCode() {
         return Objects.hash(id);
+    }
+
+    @Override
+    public Mono<EmbedCreateSpec> display(GatewayDiscordClient client) {
+        Mono<String> discord = Flux.fromIterable(getDiscordAccounts())
+                .map(Snowflake::of)
+                .flatMap(client::getUserById)
+                .map(u -> "`%s` (`%s`)".formatted(u.getTag(), u.getId().asLong()))
+                .collectList()
+                .map(l -> l.isEmpty() ? "None" : String.join("\n", l));
+
+        Mono<String> minecraft = Flux.fromIterable(getMinecraftAccounts())
+                .flatMap(uuid -> Mono.zip(Mono.just(uuid), Util.getMinecraftUsername(uuid)))
+                .map(t -> "`%s` (`%s`)".formatted(t.getT2(), t.getT1()))
+                .collectList()
+                .map(l -> l.isEmpty() ? "None" : String.join("\n", l));
+
+        String formattedReason = Optional.ofNullable(getReason()).orElse("None");
+
+        String formattedProof = Optional.ofNullable(getProofUrl()).orElse("No proof provided");
+
+        return Mono.zip(discord, minecraft)
+                .map(t -> EmbedCreateSpec.builder()
+                        .title("Blacklisted user (ID: %d)".formatted(getId()))
+                        .addField("Discord Accounts", t.getT1(), false)
+                        .addField("Minecraft Accounts", t.getT2(), false)
+                        .addField("Reason", formattedReason, false)
+                        .addField("Proof", formattedProof, false)
+                        .build());
     }
 }

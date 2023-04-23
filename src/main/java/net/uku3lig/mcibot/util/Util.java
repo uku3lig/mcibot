@@ -20,6 +20,7 @@ import org.springframework.web.servlet.ModelAndView;
 import reactor.core.publisher.Mono;
 
 import java.util.*;
+import java.util.concurrent.atomic.AtomicInteger;
 
 @Slf4j
 public class Util {
@@ -144,6 +145,11 @@ public class Util {
                 .blockOptional()
                 // in doubt, not an admin
                 .orElse(true);
+    }
+
+    public static void clamp(AtomicInteger atomicInteger, int min, int max) {
+        if (atomicInteger.get() < min) atomicInteger.set(min);
+        if (atomicInteger.get() > max) atomicInteger.set(max);
     }
 
     @Data
