@@ -19,8 +19,8 @@ public class Server {
     private ServerType type;
 
     // === DISCORD ATTRIBUTES === //
-    private long guildId = -1;
-    private long promptChannel = -1;
+    private long guildId = 0;
+    private long promptChannel = 0;
     private boolean autoBlacklist = false;
 
     // === MINECRAFT ATTRIBUTES === //
