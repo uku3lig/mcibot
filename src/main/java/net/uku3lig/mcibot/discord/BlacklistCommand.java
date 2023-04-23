@@ -11,7 +11,6 @@ import discord4j.core.object.component.Button;
 import discord4j.core.object.entity.Guild;
 import discord4j.core.object.entity.Message;
 import discord4j.core.object.entity.User;
-import discord4j.core.object.entity.channel.MessageChannel;
 import discord4j.discordjson.json.ApplicationCommandOptionData;
 import discord4j.discordjson.json.ApplicationCommandRequest;
 import lombok.RequiredArgsConstructor;
@@ -142,11 +141,9 @@ public class BlacklistCommand implements ICommand {
                                 } else if (server.isAutoBlacklist()) {
                                     return blacklistUser(server, bu);
                                 } else {
-                                    return client.getChannelById(Snowflake.of(server.getPromptChannel())).map(MessageChannel.class::cast)
-                                            .switchIfEmpty(client.getGuildById(Snowflake.of(server.getGuildId()))
-                                                    .flatMap(Guild::getOwner)
-                                                    .flatMap(User::getPrivateChannel))
-                                            .zipWith(client.getGuildById(Snowflake.of(server.getGuildId())))
+                                    return server.getPromptChannel(client)
+                                            .switchIfEmpty(server.getGuild(client).flatMap(Guild::getOwner).flatMap(User::getPrivateChannel))
+                                            .zipWith(server.getGuild(client))
                                             .flatMap(t -> t.getT1().createMessage(getBlacklistMessage(tag, username, bu, t.getT2().getName()))
                                                     .withComponents(ActionRow.of(BLACKLIST_CONFIRM, Util.CANCEL_BUTTON))
                                                     .flatMap(msg -> getBlacklistListener(bu, server, t.getT2(), username, msg, evt)))
@@ -178,7 +175,7 @@ public class BlacklistCommand implements ICommand {
         server.getBlacklistedUsers().add(user);
         serverRepository.save(server);
 
-        return client.getGuildById(Snowflake.of(server.getGuildId()))
+        return server.getGuild(client)
                 .flatMap(guild -> Flux.fromIterable(user.getDiscordAccounts())
                         .map(Snowflake::of)
                         .flatMap(s -> guild.ban(s).withReason(user.getReason())

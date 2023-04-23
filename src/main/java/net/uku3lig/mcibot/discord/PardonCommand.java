@@ -12,7 +12,6 @@ import discord4j.core.object.component.Button;
 import discord4j.core.object.entity.Guild;
 import discord4j.core.object.entity.Message;
 import discord4j.core.object.entity.User;
-import discord4j.core.object.entity.channel.MessageChannel;
 import discord4j.discordjson.json.ApplicationCommandOptionData;
 import discord4j.discordjson.json.ApplicationCommandRequest;
 import lombok.AllArgsConstructor;
@@ -113,11 +112,9 @@ public class PardonCommand implements ICommand {
                                 } else if (server.isAutoBlacklist()) {
                                     return pardonUser(server, user);
                                 } else {
-                                    return client.getChannelById(Snowflake.of(server.getPromptChannel())).map(MessageChannel.class::cast)
-                                            .switchIfEmpty(client.getGuildById(Snowflake.of(server.getGuildId()))
-                                                    .flatMap(Guild::getOwner)
-                                                    .flatMap(User::getPrivateChannel))
-                                            .zipWith(client.getGuildById(Snowflake.of(server.getGuildId())))
+                                    return server.getPromptChannel(client)
+                                            .switchIfEmpty(server.getGuild(client).flatMap(Guild::getOwner).flatMap(User::getPrivateChannel))
+                                            .zipWith(server.getGuild(client))
                                             .flatMap(tuple -> tuple.getT1().createMessage(PARDON_DM.formatted(user.getId(), tuple.getT2().getName()))
                                                     .withComponents(ActionRow.of(PARDON_CONFIRM, Util.CANCEL_BUTTON))
                                                     .flatMap(msg -> getPardonListener(user, server, tuple.getT2(), msg, evt)))
@@ -150,7 +147,7 @@ public class PardonCommand implements ICommand {
         server.getBlacklistedUsers().remove(user);
         serverRepository.save(server);
 
-        return client.getGuildById(Snowflake.of(server.getGuildId()))
+        return server.getGuild(client)
                 .flatMap(guild -> Flux.fromIterable(user.getDiscordAccounts())
                         .map(Snowflake::of)
                         .flatMap(guild::unban)

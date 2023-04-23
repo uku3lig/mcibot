@@ -1,6 +1,5 @@
 package net.uku3lig.mcibot.discord;
 
-import discord4j.common.util.Snowflake;
 import discord4j.core.GatewayDiscordClient;
 import discord4j.core.event.domain.interaction.ButtonInteractionEvent;
 import discord4j.core.event.domain.interaction.ChatInputInteractionEvent;
@@ -21,7 +20,6 @@ import net.uku3lig.mcibot.jpa.ServerRepository;
 import net.uku3lig.mcibot.jpa.UserRepository;
 import net.uku3lig.mcibot.model.BlacklistedUser;
 import net.uku3lig.mcibot.model.MinecraftUserList;
-import net.uku3lig.mcibot.model.Server;
 import net.uku3lig.mcibot.model.ServerType;
 import net.uku3lig.mcibot.util.Util;
 import org.springframework.amqp.rabbit.core.RabbitTemplate;
@@ -186,9 +184,7 @@ public class EditCommand implements ICommand {
 
                     log.info("{} edited user {}: {} {}", other.getInteraction().getUser().getTag(), user.getId(), operation, discordUser.getTag());
                     Flux<Guild> guilds = Flux.fromIterable(user.getServers(ServerType.DISCORD))
-                            .map(Server::getGuildId)
-                            .map(Snowflake::of)
-                            .flatMap(client::getGuildById);
+                            .flatMap(s -> s.getGuild(client));
 
                     Mono<Void> mono;
                     if (operation.equals("add")) {

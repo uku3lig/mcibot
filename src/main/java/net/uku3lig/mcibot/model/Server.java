@@ -1,7 +1,12 @@
 package net.uku3lig.mcibot.model;
 
+import discord4j.common.util.Snowflake;
+import discord4j.core.GatewayDiscordClient;
+import discord4j.core.object.entity.Guild;
+import discord4j.core.object.entity.channel.MessageChannel;
 import jakarta.persistence.*;
 import lombok.*;
+import reactor.core.publisher.Mono;
 
 import java.util.*;
 
@@ -19,8 +24,9 @@ public class Server {
     private ServerType type;
 
     // === DISCORD ATTRIBUTES === //
-    private long guildId = 0;
-    private long promptChannel = 0;
+    private long guildId = -1;
+    @Getter(AccessLevel.PRIVATE)
+    private long promptChannel = -1;
     private boolean autoBlacklist = false;
 
     // === MINECRAFT ATTRIBUTES === //
@@ -44,6 +50,19 @@ public class Server {
         Server server = new Server(ServerType.MINECRAFT);
         server.setRegistrarName(username);
         return server;
+    }
+
+    public Mono<MessageChannel> getPromptChannel(GatewayDiscordClient client) {
+        return client.getChannelById(Snowflake.of(promptChannel))
+                .ofType(MessageChannel.class)
+                .switchIfEmpty(Mono.empty())
+                .onErrorResume(e -> Mono.empty());
+    }
+
+    public Mono<Guild> getGuild(GatewayDiscordClient client) {
+        return client.getGuildById(Snowflake.of(guildId))
+                .switchIfEmpty(Mono.empty())
+                .onErrorResume(e -> Mono.empty());
     }
 
     @Override
