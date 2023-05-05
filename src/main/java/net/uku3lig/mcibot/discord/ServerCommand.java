@@ -15,6 +15,7 @@ import discord4j.core.spec.EmbedCreateFields;
 import discord4j.core.spec.EmbedCreateSpec;
 import discord4j.discordjson.json.ApplicationCommandOptionData;
 import discord4j.discordjson.json.ApplicationCommandRequest;
+import discord4j.rest.util.Permission;
 import lombok.AllArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import net.uku3lig.mcibot.MCIBot;
@@ -54,6 +55,7 @@ public class ServerCommand implements ICommand {
         return ApplicationCommandRequest.builder()
                 .name("server")
                 .description("Manage registered servers.")
+                .defaultMemberPermissions(String.valueOf(Permission.MANAGE_GUILD.getValue()))
                 .addOption(ApplicationCommandOptionData.builder()
                         .name(REMOVE)
                         .description("Unregister a server.")

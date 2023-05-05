@@ -6,6 +6,7 @@ import discord4j.core.object.command.ApplicationCommandInteractionOption;
 import discord4j.core.object.command.ApplicationCommandInteractionOptionValue;
 import discord4j.discordjson.json.ApplicationCommandOptionData;
 import discord4j.discordjson.json.ApplicationCommandRequest;
+import discord4j.rest.util.Permission;
 import lombok.AllArgsConstructor;
 import net.uku3lig.mcibot.discord.core.ICommand;
 import net.uku3lig.mcibot.jpa.ServerRepository;
@@ -34,6 +35,7 @@ public class ListCommand implements ICommand {
         return ApplicationCommandRequest.builder()
                 .name("list")
                 .description("List blacklisted users.")
+                .defaultMemberPermissions(String.valueOf(Permission.BAN_MEMBERS.getValue()))
                 .addOption(ApplicationCommandOptionData.builder()
                         .name("all")
                         .description("List all of the blacklisted users")

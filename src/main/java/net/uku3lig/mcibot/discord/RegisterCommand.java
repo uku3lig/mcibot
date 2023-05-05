@@ -24,6 +24,7 @@ public class RegisterCommand implements ICommand {
         return ApplicationCommandRequest.builder()
                 .name("register")
                 .description("Register the current server")
+                .defaultMemberPermissions(String.valueOf(Permission.MANAGE_GUILD.getValue()))
                 .build();
     }
 

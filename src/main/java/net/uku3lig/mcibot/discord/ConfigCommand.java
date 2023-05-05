@@ -7,6 +7,7 @@ import discord4j.core.object.command.ApplicationCommandInteractionOptionValue;
 import discord4j.core.object.entity.channel.MessageChannel;
 import discord4j.discordjson.json.ApplicationCommandOptionData;
 import discord4j.discordjson.json.ApplicationCommandRequest;
+import discord4j.rest.util.Permission;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import net.uku3lig.mcibot.discord.core.ICommand;
@@ -31,6 +32,7 @@ public class ConfigCommand implements ICommand {
         return ApplicationCommandRequest.builder()
                 .name("config")
                 .description("configures your server owo")
+                .defaultMemberPermissions(String.valueOf(Permission.MANAGE_GUILD.getValue()))
                 .addOption(ApplicationCommandOptionData.builder()
                         .name("prompt_channel")
                         .description("the prompt channel")

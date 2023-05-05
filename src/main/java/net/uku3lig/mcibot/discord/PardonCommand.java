@@ -14,6 +14,7 @@ import discord4j.core.object.entity.Message;
 import discord4j.core.object.entity.User;
 import discord4j.discordjson.json.ApplicationCommandOptionData;
 import discord4j.discordjson.json.ApplicationCommandRequest;
+import discord4j.rest.util.Permission;
 import lombok.AllArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import net.uku3lig.mcibot.MCIBot;
@@ -54,6 +55,7 @@ public class PardonCommand implements MainGuildCommand {
         return ApplicationCommandRequest.builder()
                 .name("pardon")
                 .description("Pardon an user.")
+                .defaultMemberPermissions(String.valueOf(Permission.MANAGE_GUILD.getValue()))
                 .addOption(ApplicationCommandOptionData.builder()
                         .name("id")
                         .description("The ID of the user to pardon")

@@ -13,6 +13,7 @@ import discord4j.core.object.entity.Message;
 import discord4j.core.object.entity.User;
 import discord4j.discordjson.json.ApplicationCommandOptionData;
 import discord4j.discordjson.json.ApplicationCommandRequest;
+import discord4j.rest.util.Permission;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import net.uku3lig.mcibot.MCIBot;
@@ -58,6 +59,7 @@ public class BlacklistCommand implements MainGuildCommand {
         return ApplicationCommandRequest.builder()
                 .name("blacklist")
                 .description("Blacklist an user.")
+                .defaultMemberPermissions(String.valueOf(Permission.MANAGE_GUILD.getValue()))
                 .addOption(ApplicationCommandOptionData.builder()
                         .name("username")
                         .description("The user's Minecraft username.")
