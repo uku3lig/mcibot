@@ -11,6 +11,7 @@ import org.springframework.context.annotation.Profile;
 import org.springframework.stereotype.Component;
 import reactor.core.publisher.Mono;
 
+import java.util.Collections;
 import java.util.List;
 import java.util.Objects;
 
@@ -36,6 +37,7 @@ public class DevCommandRegistrar implements ApplicationRunner {
                 .flatMap(guild -> applicationService.bulkOverwriteGuildApplicationCommand(applicationId, guild.id().asLong(), requests)
                         .then(Mono.just(guild.id().asLong())))
                 .doOnNext(id -> log.info("Registered commands for guild {}", id))
+                .thenMany(applicationService.bulkOverwriteGlobalApplicationCommand(applicationId, Collections.emptyList()))
                 .doOnError(e -> log.error("Could not register commands", e))
                 .subscribe();
     }
