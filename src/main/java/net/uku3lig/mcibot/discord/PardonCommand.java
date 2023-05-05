@@ -17,7 +17,7 @@ import discord4j.discordjson.json.ApplicationCommandRequest;
 import lombok.AllArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import net.uku3lig.mcibot.MCIBot;
-import net.uku3lig.mcibot.discord.core.ICommand;
+import net.uku3lig.mcibot.discord.core.MainGuildCommand;
 import net.uku3lig.mcibot.jpa.ServerRepository;
 import net.uku3lig.mcibot.jpa.UserRepository;
 import net.uku3lig.mcibot.model.BlacklistedUser;
@@ -38,7 +38,7 @@ import java.util.concurrent.TimeoutException;
 @Slf4j
 @Service
 @AllArgsConstructor
-public class PardonCommand implements ICommand {
+public class PardonCommand implements MainGuildCommand {
     private static final Button PARDON_CONFIRM = Button.primary("pardon_confirm", "Pardon");
     private static final ActionRow PARDONED = ActionRow.of(Button.secondary("pardon", "Pardoned").disabled());
 

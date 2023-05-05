@@ -15,7 +15,7 @@ import discord4j.discordjson.json.ApplicationCommandRequest;
 import lombok.AllArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import net.uku3lig.mcibot.MCIBot;
-import net.uku3lig.mcibot.discord.core.ICommand;
+import net.uku3lig.mcibot.discord.core.MainGuildCommand;
 import net.uku3lig.mcibot.jpa.ServerRepository;
 import net.uku3lig.mcibot.jpa.UserRepository;
 import net.uku3lig.mcibot.model.BlacklistedUser;
@@ -38,7 +38,7 @@ import static discord4j.core.object.command.ApplicationCommandOption.Type.*;
 @Service
 @AllArgsConstructor
 @Slf4j
-public class EditCommand implements ICommand {
+public class EditCommand implements MainGuildCommand {
     private static final ActionRow EDITED = ActionRow.of(Button.secondary("edited", "Edited").disabled());
 
     private final UserRepository userRepository;

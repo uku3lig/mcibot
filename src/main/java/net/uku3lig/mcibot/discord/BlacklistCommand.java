@@ -16,7 +16,7 @@ import discord4j.discordjson.json.ApplicationCommandRequest;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import net.uku3lig.mcibot.MCIBot;
-import net.uku3lig.mcibot.discord.core.ICommand;
+import net.uku3lig.mcibot.discord.core.MainGuildCommand;
 import net.uku3lig.mcibot.jpa.ServerRepository;
 import net.uku3lig.mcibot.jpa.UserRepository;
 import net.uku3lig.mcibot.model.BlacklistedUser;
@@ -42,7 +42,7 @@ import static discord4j.core.object.command.ApplicationCommandOption.Type.USER;
 @Slf4j
 @Service
 @RequiredArgsConstructor
-public class BlacklistCommand implements ICommand {
+public class BlacklistCommand implements MainGuildCommand {
     private static final Button BLACKLIST_CONFIRM = Button.primary("blacklist_confirm", "Blacklist");
     private static final ActionRow BLACKLISTED = ActionRow.of(Button.secondary("blacklisted", "Blacklisted").disabled());
 
