@@ -43,9 +43,9 @@ public class CommandRegistrar implements ApplicationRunner {
         applicationService.bulkOverwriteGlobalApplicationCommand(applicationId, requests)
                 .doOnNext(response -> log.info("Registered {} global commands", requests.size()))
                 .doOnError(e -> log.error("Failed to register global commands", e))
-                .thenMany(applicationService.bulkOverwriteGuildApplicationCommand(applicationId, mainGuildId, mainGuildRequests))
                 .thenMany(client.getGuilds())
                 .flatMap(guild -> applicationService.bulkOverwriteGuildApplicationCommand(applicationId, guild.id().asLong(), Collections.emptyList()))
+                .thenMany(applicationService.bulkOverwriteGuildApplicationCommand(applicationId, mainGuildId, mainGuildRequests))
                 .subscribe();
     }
 }
